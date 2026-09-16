@@ -30,7 +30,13 @@ class _SignupState extends State<Signup> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('이름',style: TextStyle(color: Colors.black87,fontWeight: FontWeight.w600),),
+            Text(
+              '이름',
+              style: TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             SizedBox(height: 8),
             TextField(
               decoration: InputDecoration(
@@ -41,7 +47,13 @@ class _SignupState extends State<Signup> {
               ),
             ),
             SizedBox(height: 16),
-            Text('이메일 주소',style: TextStyle(color: Colors.black87,fontWeight: FontWeight.w600),),
+            Text(
+              '이메일 주소',
+              style: TextStyle(
+                color: Colors.black87,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             SizedBox(height: 8),
             TextField(
               decoration: InputDecoration(
@@ -50,7 +62,8 @@ class _SignupState extends State<Signup> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-            ),SizedBox(height: 16),
+            ),
+            SizedBox(height: 16),
             const Text('비밀번호'),
             const SizedBox(height: 8),
             PasswordField(
@@ -105,7 +118,7 @@ class _PasswordFieldState extends State<PasswordField> {
       onChanged: widget.onChanged,
       decoration: InputDecoration(
         hintText: widget.hint,
-        errorText: widget.errorText, 
+        errorText: widget.errorText,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
