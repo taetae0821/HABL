@@ -8,15 +8,27 @@ class Signup extends StatefulWidget {
 }
 
 class _SignupState extends State<Signup> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _pwController = TextEditingController();
   final _pwConfirmController = TextEditingController();
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
     _pwController.dispose();
     _pwConfirmController.dispose();
     super.dispose();
   }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8, top: 20),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -24,65 +36,88 @@ class _SignupState extends State<Signup> {
     final isMatch = confirmText == _pwController.text;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('계정만들기')),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '이름',
-              style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w600,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '계정 만들기',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
-            ),
-            SizedBox(height: 8),
-            TextField(
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                hintText: '👤홍길동',
+              const SizedBox(height: 8),
+              Text(
+                '몇 가지 정보만 입력하면 시작할 수 있어요',
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
               ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              '이메일 주소',
-              style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            SizedBox(height: 8),
-            TextField(
-              decoration: InputDecoration(
-                hintText: '✉️name@example.com',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 12),
+
+              _label('이름'),
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  hintText: '홍길동',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
               ),
-            ),
-            SizedBox(height: 16),
-            const Text('비밀번호'),
-            const SizedBox(height: 8),
-            PasswordField(
-              controller: _pwController,
-              hint: '🔒*********',
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 16),
-            const Text('비밀번호 확인'),
-            const SizedBox(height: 8),
-            PasswordField(
-              controller: _pwConfirmController,
-              hint: '🔒*********',
-              onChanged: (_) => setState(() {}),
-              errorText: confirmText.isNotEmpty && !isMatch
-                  ? '비밀번호가 일치하지 않습니다'
-                  : null,
-            ),
-          ],
+
+              _label('이메일 주소'),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: 'name@example.com',
+                  prefixIcon: Icon(Icons.mail_outline),
+                ),
+              ),
+
+              _label('비밀번호'),
+              PasswordField(
+                controller: _pwController,
+                hint: '8자 이상 입력하세요',
+                onChanged: (_) => setState(() {}),
+              ),
+
+              _label('비밀번호 확인'),
+              PasswordField(
+                controller: _pwConfirmController,
+                hint: '비밀번호를 한 번 더 입력하세요',
+                onChanged: (_) => setState(() {}),
+                errorText: confirmText.isNotEmpty && !isMatch
+                    ? '비밀번호가 일치하지 않습니다'
+                    : null,
+              ),
+
+              const SizedBox(height: 36),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () {
+                  },
+                  child: const Text(
+                    '가입하기',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('이미 계정이 있으신가요?',
+                      style: TextStyle(color: Colors.grey.shade600)),
+                  TextButton(onPressed: () {}, child: const Text('로그인')),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -122,8 +157,12 @@ class _PasswordFieldState extends State<PasswordField> {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        prefixIcon: const Icon(Icons.lock_outline),
         suffixIcon: IconButton(
-          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+          icon: Icon(
+            _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            color: Colors.grey.shade500,
+          ),
           onPressed: () => setState(() => _obscure = !_obscure),
         ),
       ),
