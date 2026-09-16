@@ -154,9 +154,6 @@ class _PasswordFieldState extends State<PasswordField> {
       decoration: InputDecoration(
         hintText: widget.hint,
         errorText: widget.errorText,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
         prefixIcon: const Icon(Icons.lock_outline),
         suffixIcon: IconButton(
           icon: Icon(
