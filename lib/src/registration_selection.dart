@@ -42,9 +42,21 @@ class Registration extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.priority_high),
-           
+            SizedBox(height: 20),
+            Row(
+            crossAxisAlignment: CrossAxisAlignment.start, // 여러 줄일 때 아이콘을 첫 줄에 맞춤
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Colors.grey.shade500),
+              const SizedBox(width: 6),
+              Expanded(                                   // 글자가 길어도 자동 줄바꿈
+                child: Text(
+                  '어느 쪽을 선택해도 모임 활동은 자유롭게 시작할 수 있으니 부담 없이 골라보세요!',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+                ),
+              ),
             ],
+          ),
+           ],
           ),
           ),
           ],
