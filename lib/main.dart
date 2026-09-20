@@ -5,8 +5,6 @@ import 'src/app.dart';
 
 void main(){
   runApp(const MyApp());
-<<<<<<< HEAD
-=======
 }
 
 class MyApp extends StatelessWidget {
@@ -38,5 +36,4 @@ class MyApp extends StatelessWidget {
   home: const Signup(),
 );
   }
->>>>>>> bb04ffb (feat: add sign-up screen)
 }

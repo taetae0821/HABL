@@ -71,6 +71,15 @@ class _SignupState extends State<Signup> {
                   prefixIcon: Icon(Icons.mail_outline),
                 ),
               ),
+              _label('전화번호'),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: '010-1234-1234',
+                  prefixIcon: Icon(Icons.phone),
+                ),
+              ),
 
               _label('비밀번호'),
               PasswordField(
