@@ -10,6 +10,7 @@ class Signup extends StatefulWidget {
 class _SignupState extends State<Signup> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _pwController = TextEditingController();
   final _pwConfirmController = TextEditingController();
 
@@ -17,6 +18,7 @@ class _SignupState extends State<Signup> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _pwController.dispose();
     _pwConfirmController.dispose();
     super.dispose();
@@ -73,8 +75,8 @@ class _SignupState extends State<Signup> {
               ),
               _label('전화번호'),
               TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
                   hintText: '010-1234-1234',
                   prefixIcon: Icon(Icons.phone),
