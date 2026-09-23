@@ -152,7 +152,7 @@ class _SignupState extends State<Signup> {
                       style: TextStyle(color: Colors.grey.shade600)),
                   TextButton(
                     onPressed: () {
-                      Navigator.of(context).push(
+                      Navigator.of(context).pushReplacement(
                         MaterialPageRoute(builder: (_) => const Login()),
                       );
                     },
