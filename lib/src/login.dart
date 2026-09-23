@@ -1,27 +1,21 @@
 import 'package:flutter/material.dart';
-import './login.dart';
+import './signup.dart';
 
-class Signup extends StatefulWidget {
-  const Signup({super.key});
+class Login extends StatefulWidget {
+  const Login({super.key});
 
   @override
-  State<Signup> createState() => _SignupState();
+  State<Login> createState() => _LoginState();
 }
 
-class _SignupState extends State<Signup> {
-  final _nameController = TextEditingController();
+class _LoginState extends State<Login> {
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _pwController = TextEditingController();
-  final _pwConfirmController = TextEditingController();
 
   @override
   void dispose() {
-    _nameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     _pwController.dispose();
-    _pwConfirmController.dispose();
     super.dispose();
   }
 
@@ -40,8 +34,6 @@ class _SignupState extends State<Signup> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final confirmText = _pwConfirmController.text;
-    final isMatch = confirmText == _pwController.text;
 
     return Scaffold(
       body: SafeArea(
@@ -58,14 +50,14 @@ class _SignupState extends State<Signup> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  Icons.person_add_alt_1_rounded,
+                  Icons.lock_outline_rounded,
                   color: colorScheme.primary,
                   size: 28,
                 ),
               ),
               const SizedBox(height: 20),
               const Text(
-                '계정 만들기',
+                '로그인',
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
@@ -74,17 +66,8 @@ class _SignupState extends State<Signup> {
               ),
               const SizedBox(height: 8),
               Text(
-                '몇 가지 정보만 입력하면 시작할 수 있어요',
+                '이메일과 비밀번호를 입력해주세요',
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
-              ),
-
-              _label('이름'),
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: '홍길동',
-                  prefixIcon: Icon(Icons.person_outline, color: Colors.grey.shade500),
-                ),
               ),
 
               _label('이메일 주소'),
@@ -96,34 +79,22 @@ class _SignupState extends State<Signup> {
                   prefixIcon: Icon(Icons.mail_outline, color: Colors.grey.shade500),
                 ),
               ),
-              _label('전화번호'),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  hintText: '010-1234-1234',
-                  prefixIcon: Icon(Icons.phone_outlined, color: Colors.grey.shade500),
-                ),
-              ),
 
               _label('비밀번호'),
               PasswordField(
                 controller: _pwController,
-                hint: '8자 이상 입력하세요',
-                onChanged: (_) => setState(() {}),
+                hint: '비밀번호를 입력하세요',
               ),
 
-              _label('비밀번호 확인'),
-              PasswordField(
-                controller: _pwConfirmController,
-                hint: '비밀번호를 한 번 더 입력하세요',
-                onChanged: (_) => setState(() {}),
-                errorText: confirmText.isNotEmpty && !isMatch
-                    ? '비밀번호가 일치하지 않습니다'
-                    : null,
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () {},
+                  child: const Text('비밀번호를 잊으셨나요?'),
+                ),
               ),
 
-              const SizedBox(height: 36),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -140,7 +111,7 @@ class _SignupState extends State<Signup> {
                   ),
                   child: FilledButton(
                     onPressed: () {},
-                    child: const Text('가입하기'),
+                    child: const Text('로그인'),
                   ),
                 ),
               ),
@@ -148,63 +119,20 @@ class _SignupState extends State<Signup> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('이미 계정이 있으신가요?',
+                  Text('아직 계정이 없으신가요?',
                       style: TextStyle(color: Colors.grey.shade600)),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const Login()),
+                        MaterialPageRoute(builder: (_) => const Signup()),
                       );
                     },
-                    child: const Text('로그인'),
+                    child: const Text('회원가입'),
                   ),
                 ],
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class PasswordField extends StatefulWidget {
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String>? onChanged;
-  final String? errorText;
-
-  const PasswordField({
-    super.key,
-    required this.controller,
-    required this.hint,
-    this.onChanged,
-    this.errorText,
-  });
-
-  @override
-  State<PasswordField> createState() => _PasswordFieldState();
-}
-
-class _PasswordFieldState extends State<PasswordField> {
-  bool _obscure = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: widget.controller,
-      obscureText: _obscure,
-      onChanged: widget.onChanged,
-      decoration: InputDecoration(
-        hintText: widget.hint,
-        errorText: widget.errorText,
-        prefixIcon: Icon(Icons.lock_outline, color: Colors.grey.shade500),
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            color: Colors.grey.shade500,
-          ),
-          onPressed: () => setState(() => _obscure = !_obscure),
         ),
       ),
     );
