@@ -1,7 +1,7 @@
 // lib/src/app.dart
 
 import 'package:flutter/material.dart';
-import 'src/find_club.dart';
+import 'package:habl/src/club.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,6 +12,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: FindClub());
+    return const MaterialApp(home: Club(clubName: '스매시 파크 성동'));
   }
 }
