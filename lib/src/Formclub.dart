@@ -21,6 +21,7 @@ class Formclub extends StatefulWidget {
 class _FormclubState extends State<Formclub> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _locationController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _maxMemberController = TextEditingController();
 
@@ -29,6 +30,7 @@ class _FormclubState extends State<Formclub> {
   @override
   void dispose() {
     _nameController.dispose();
+    _locationController.dispose();
     _descriptionController.dispose();
     _maxMemberController.dispose();
     super.dispose();
@@ -83,7 +85,7 @@ class _FormclubState extends State<Formclub> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F6FB),
       appBar: AppBar(
-        title: const Text('동호회 만들기'),
+        title: const Text('동호회 개설하기'),
         backgroundColor: const Color(0xFFF7F6FB),
         elevation: 0,
         foregroundColor: Colors.black87,
@@ -105,7 +107,7 @@ class _FormclubState extends State<Formclub> {
               ),
               const SizedBox(height: 20),
               Text(
-                '새로운 동호회를 시작해보세요',
+                '원하는 종목과 테마로 새로운 취미 커뮤니티를 만듭니다',
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 28),
@@ -113,7 +115,7 @@ class _FormclubState extends State<Formclub> {
                 controller: _nameController,
                 decoration: _decoration(
                   label: '동호회 이름',
-                  hint: '예: 주말 등산 모임',
+                  hint: '개성 넘치는 이름을 써주세요!',
                   icon: Icons.badge_outlined,
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty)
@@ -130,6 +132,16 @@ class _FormclubState extends State<Formclub> {
                     .toList(),
                 onChanged: (value) => setState(() => _selectedCategory = value),
                 validator: (value) => value == null ? '카테고리를 선택해주세요.' : null,
+              ),
+              const SizedBox(height: 16),
+              // TODO: 임시 위치 입력칸 - 추후 카카오맵 위치 선택으로 교체
+              TextFormField(
+                controller: _locationController,
+                decoration: _decoration(
+                  label: '위치',
+                  hint: '주요 모임 장소를 써주세요!',
+                  icon: Icons.location_on_outlined,
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
