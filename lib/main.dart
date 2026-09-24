@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'src/Header.dart';
 import 'src/signup.dart';
+import 'src/registration_selection.dart';
 
 void main() {
   runApp(const MyApp());
@@ -41,7 +42,7 @@ class _HomePageState extends State<HomePage> {
   void _onItemTapped(int index) {
     if (index == _profileIndex && !_isLoggedIn) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const Signup()),
+        MaterialPageRoute(builder: (_) => const Registration()),
       );
       return;
     }
