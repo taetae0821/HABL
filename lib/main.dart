@@ -1,7 +1,9 @@
+// lib/src/app.dart
+
 import 'package:flutter/material.dart';
-import 'src/Header.dart';
-import 'src/signup.dart';
+import 'src/header.dart';
 import 'src/registration_selection.dart';
+import 'src/find_club.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,10 +31,11 @@ class _HomePageState extends State<HomePage> {
   static const int _profileIndex = 4;
 
   int _selectedIndex = 0;
-  bool _isLoggedIn = false;
+  // TODO: 로그인 기능 연결 시 final 제거하고 로그인 상태에 따라 변경
+  final bool _isLoggedIn = false;
 
   static const List<Widget> _pages = [
-    Center(child: Text('탐색')),
+    FindClub(),
     Center(child: Text('지도')),
     Center(child: Text('개설')),
     Center(child: Text('알람')),
