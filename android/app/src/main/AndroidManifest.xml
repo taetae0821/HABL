@@ -1,8 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 카카오맵 웹뷰가 지도를 불러오기 위한 인터넷 권한입니다 -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="habl"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />

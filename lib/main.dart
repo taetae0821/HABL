@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'src/Header.dart';
 import 'src/signup.dart';
 import 'src/registration_selection.dart';
+import 'src/Formclub.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const Main());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Main extends StatelessWidget {
+  const Main({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +35,7 @@ class _HomePageState extends State<HomePage> {
   static const List<Widget> _pages = [
     Center(child: Text('탐색')),
     Center(child: Text('지도')),
-    Center(child: Text('개설')),
+    Formclub(),
     Center(child: Text('알람')),
     Center(child: Text('프로필')),
   ];
