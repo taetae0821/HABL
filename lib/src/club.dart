@@ -134,6 +134,16 @@ class _ClubState extends State<Club> {
 
     if (_imageUrl.isEmpty) return placeholder;
 
+    // 앱에 포함된 이미지 경로 (예: assets/sample/...)
+    if (_imageUrl.startsWith('assets/')) {
+      return Image.asset(
+        _imageUrl,
+        width: double.infinity,
+        height: height,
+        fit: BoxFit.cover,
+      );
+    }
+
     return Image.network(
       _imageUrl,
       width: double.infinity,

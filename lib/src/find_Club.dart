@@ -112,7 +112,8 @@ class _FindClubState extends State<FindClub> {
 
   // TODO: DB 연결 후 서버에서 동호회 목록을 받아오도록 교체
   // (예: GET /clubs 응답을 ClubSummary.fromJson으로 변환, 최신순 정렬)
-  // imageUrl은 DB clubs.image_url 값 (아래 주소는 임시 샘플 이미지)
+  // imageUrl은 DB clubs.image_url 값
+  // (아래는 임시 샘플 이미지: assets/sample 사진은 Wikimedia Commons의 CC0 사진)
   Future<void> _loadClubs() async {
     setState(() {
       _clubs = const [
@@ -123,7 +124,7 @@ class _FindClubState extends State<FindClub> {
           description: '초보부터 실력자까지 함께 즐기는 배드민턴 모임입니다.',
           locationName: '서울 성동구',
           regularMeetingInfo: '매주 토요일 오후 2시',
-          imageUrl: 'https://picsum.photos/seed/habl-badminton/600/400',
+          imageUrl: 'assets/badminton_img.png',
         ),
         ClubSummary(
           id: 2,
@@ -132,7 +133,7 @@ class _FindClubState extends State<FindClub> {
           description: '한 달에 한 권, 같이 읽고 이야기 나눠요.',
           locationName: '서울 마포구',
           regularMeetingInfo: '격주 일요일 오전 11시',
-          imageUrl: 'https://picsum.photos/seed/habl-book/600/400',
+          imageUrl: 'assets/sample/book_club.jpg',
         ),
         ClubSummary(
           id: 3,
@@ -141,7 +142,7 @@ class _FindClubState extends State<FindClub> {
           description: '퇴근 후 한강에서 같이 5km 달려요.',
           locationName: '서울 마포구',
           regularMeetingInfo: '매주 수요일 오후 8시',
-          imageUrl: 'https://picsum.photos/seed/habl-running/600/400',
+          imageUrl: 'assets/sample/running_club.jpg',
         ),
         ClubSummary(
           id: 4,
@@ -150,7 +151,7 @@ class _FindClubState extends State<FindClub> {
           description: '기타 초보도 환영! 좋아하는 노래를 함께 연주해요.',
           locationName: '서울 성동구',
           regularMeetingInfo: '매주 금요일 오후 7시',
-          imageUrl: 'https://picsum.photos/seed/habl-guitar/600/400',
+          imageUrl: 'assets/sample/guitar_club.jpg',
         ),
       ];
       _isLoading = false;
@@ -478,6 +479,8 @@ class _ClubCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: (url == null || url.isEmpty)
           ? placeholder
+          : url.startsWith('assets/')
+          ? Image.asset(url, width: size, height: size, fit: BoxFit.cover)
           : Image.network(
               url,
               width: size,
