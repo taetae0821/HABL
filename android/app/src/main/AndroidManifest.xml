@@ -6,9 +6,12 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
+<<<<<<< HEAD
+=======
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
+>>>>>>> 8bd90adc958ac29c4cf659c554de2fb8860e419c
         <activity
             android:name=".MainActivity"
             android:exported="true"
