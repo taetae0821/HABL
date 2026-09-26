@@ -11,7 +11,7 @@ import 'package:habl/main.dart';
 
 void main() {
   testWidgets('Registration screen is shown', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const Main());
 
     expect(find.text('회원가입'), findsOneWidget);
     expect(find.text('가입 방법을 선택해주세요'), findsOneWidget);
