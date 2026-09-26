@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 // lib/src/app.dart
 
 import 'package:flutter/material.dart';
 import 'src/header.dart';
 import 'src/registration_selection.dart';
 import 'src/find_club.dart';
+=======
+import 'package:flutter/material.dart';
+import 'src/Header.dart';
+import 'src/signup.dart';
+import 'src/registration_selection.dart';
+>>>>>>> 8bd90adc958ac29c4cf659c554de2fb8860e419c
 import 'src/Formclub.dart';
 
 void main() {
