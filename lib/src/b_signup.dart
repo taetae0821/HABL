@@ -1,6 +1,5 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import './login.dart';
 import './m_signup.dart' show PasswordField;
 
 class BSignup extends StatefulWidget {
@@ -196,7 +195,7 @@ class _SignupState extends State<BSignup> {
                       ),
                     ),
 
-                    _label('주 활동 지역'),
+                    _label('주 동호회 활동 지역'),
                     TextField(
                       controller: _regionController,
                       decoration: InputDecoration(
@@ -320,9 +319,8 @@ class _SignupState extends State<BSignup> {
                       style: TextStyle(color: Colors.grey.shade600)),
                   TextButton(
                     onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (_) => const Login()),
-                      );
+                      // 처음 화면(로그인)으로 돌아갑니다
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     child: const Text('로그인'),
                   ),

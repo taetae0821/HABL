@@ -3,6 +3,8 @@ import 'src/header.dart';
 import 'src/registration_selection.dart';
 import 'src/form_club.dart';
 import 'src/find_club.dart';
+import 'src/auth.dart';
+import 'src/login.dart';
 
 void main() {
   runApp(const Main());
@@ -13,8 +15,14 @@ class Main extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: HomePage(),
+    // 로그인 안 되어 있으면 로그인 화면, 되어 있으면 메인 화면
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: ValueListenableBuilder<bool>(
+        valueListenable: isLoggedIn,
+        builder: (_, loggedIn, _) =>
+            loggedIn ? const HomePage() : const Login(),
+      ),
     );
   }
 }
@@ -30,8 +38,7 @@ class _HomePageState extends State<HomePage> {
   static const int _profileIndex = 4;
 
   int _selectedIndex = 0;
-  // TODO: 로그인 기능 연결 시 final 제거하고 로그인 상태에 따라 변경
-  final bool _isLoggedIn = false;
+  bool get _isLoggedIn => isLoggedIn.value;
 
   static const List<Widget> _pages = [
     FindClub(),

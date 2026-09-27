@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'm_signup.dart';
+import 'm_signup.dart' show PasswordField;
+import 'auth.dart';
+import 'registration_selection.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -17,6 +19,17 @@ class _LoginState extends State<Login> {
     _emailController.dispose();
     _pwController.dispose();
     super.dispose();
+  }
+
+  void _login() {
+    if (_emailController.text.trim().isEmpty || _pwController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이메일과 비밀번호를 입력해주세요')),
+      );
+      return;
+    }
+    // TODO: 서버에 이메일/비밀번호 확인 요청
+    isLoggedIn.value = true;
   }
 
   Widget _label(String text) => Padding(
@@ -110,7 +123,7 @@ class _LoginState extends State<Login> {
                     ],
                   ),
                   child: FilledButton(
-                    onPressed: () {},
+                    onPressed: _login,
                     child: const Text('로그인'),
                   ),
                 ),
@@ -124,7 +137,7 @@ class _LoginState extends State<Login> {
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const Signup()),
+                        MaterialPageRoute(builder: (_) => const Registration()),
                       );
                     },
                     child: const Text('회원가입'),
