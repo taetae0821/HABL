@@ -86,7 +86,7 @@ class _SignupState extends State<Signup> {
               ),
               const SizedBox(height: 20),
               const Text(
-                '계정 만들기',
+                '회원 계정 만들기',
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,

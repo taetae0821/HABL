@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:habl/src/signup.dart';
+import 'package:habl/src/m_signup.dart';
+import 'package:habl/src/b_signup.dart';
 
 class Registration extends StatelessWidget {
   const Registration({super.key});
@@ -35,9 +36,9 @@ class Registration extends StatelessWidget {
             ),
             SizedBox(height: 15),
             ElevatedButton.icon(
-              onPressed: () { 
+              onPressed: () {
                 Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => const Signup()),
+                    MaterialPageRoute(builder: (_) => const BSignup()),
                   );},
               icon: const Icon(Icons.star),
               label: const Text('동호회 회장으로 가입하기'),
