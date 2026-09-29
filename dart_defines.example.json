@@ -1,0 +1,4 @@
+{
+  "KAKAO_NATIVE_APP_KEY": "카카오 디벨로퍼스의 네이티브 앱 키",
+  "API_BASE_URL": "http://<서버를 실행하는 PC의 IP>:3000"
+}

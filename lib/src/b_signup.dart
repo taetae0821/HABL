@@ -1,9 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import './m_signup.dart' show PasswordField;
+import 'social_auth.dart';
+import 'social_login_buttons.dart';
 
 class BSignup extends StatefulWidget {
-  const BSignup({super.key});
+  final PendingSocialSignup? social;
+
+  const BSignup({super.key, this.social});
 
   @override
   State<BSignup> createState() => _SignupState();
@@ -23,6 +27,54 @@ ThemeData _leaderTheme(BuildContext context) {
 }
 
 class _SignupState extends State<BSignup> {
+  // 소셜 계정으로 가입 중이면 이메일/비밀번호 입력을 생략합니다
+  PendingSocialSignup? _social;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.social != null) _applySocial(widget.social!);
+  }
+
+  void _applySocial(PendingSocialSignup social) {
+    _social = social;
+    if (_nameController.text.isEmpty) {
+      _nameController.text = social.name ?? '';
+    }
+  }
+
+  void _startSocialSignup(PendingSocialSignup social) =>
+      setState(() => _applySocial(social));
+
+  // TODO: 한 줄 소개·활동 지역·운영 경험은 저장할 DB 컬럼이 아직 없어 서버로 보내지 않음
+  Future<void> _submitSocial() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    if (_nameController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('이름과 전화번호를 입력해주세요')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await completeSocialSignup(
+        _social!,
+        role: 'LEADER',
+        name: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+      );
+      navigator.popUntil((route) => route.isFirst);
+    } on SocialAuthException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   final _nameController = TextEditingController();
   final _birthController = TextEditingController();
   DateTime? _birthDate;
@@ -151,6 +203,12 @@ class _SignupState extends State<BSignup> {
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
               ),
 
+              const SizedBox(height: 28),
+              if (_social == null)
+                SocialLoginButtons(onNeedsSignup: _startSocialSignup)
+              else
+                SocialSignupBanner(social: _social!),
+
               // 회장 전용 입력 영역
               const SizedBox(height: 24),
               Container(
@@ -247,15 +305,17 @@ class _SignupState extends State<BSignup> {
                 ),
               ),
 
-              _label('이메일 주소'),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.mail_outline, color: Colors.grey.shade500),
+              if (_social == null) ...[
+                _label('이메일 주소'),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'name@example.com',
+                    prefixIcon: Icon(Icons.mail_outline, color: Colors.grey.shade500),
+                  ),
                 ),
-              ),
+              ],
               _label('전화번호'),
               TextField(
                 controller: _phoneController,
@@ -266,22 +326,24 @@ class _SignupState extends State<BSignup> {
                 ),
               ),
 
-              _label('비밀번호'),
-              PasswordField(
-                controller: _pwController,
-                hint: '8자 이상 입력하세요',
-                onChanged: (_) => setState(() {}),
-              ),
+              if (_social == null) ...[
+                _label('비밀번호'),
+                PasswordField(
+                  controller: _pwController,
+                  hint: '8자 이상 입력하세요',
+                  onChanged: (_) => setState(() {}),
+                ),
 
-              _label('비밀번호 확인'),
-              PasswordField(
-                controller: _pwConfirmController,
-                hint: '비밀번호를 한 번 더 입력하세요',
-                onChanged: (_) => setState(() {}),
-                errorText: confirmText.isNotEmpty && !isMatch
-                    ? '비밀번호가 일치하지 않습니다'
-                    : null,
-              ),
+                _label('비밀번호 확인'),
+                PasswordField(
+                  controller: _pwConfirmController,
+                  hint: '비밀번호를 한 번 더 입력하세요',
+                  onChanged: (_) => setState(() {}),
+                  errorText: confirmText.isNotEmpty && !isMatch
+                      ? '비밀번호가 일치하지 않습니다'
+                      : null,
+                ),
+              ],
 
               const SizedBox(height: 36),
               SizedBox(
@@ -299,7 +361,10 @@ class _SignupState extends State<BSignup> {
                     ],
                   ),
                   child: FilledButton(
-                    onPressed: () {},
+                    // TODO: 이메일 가입도 서버(/auth/signup)에 연결
+                    onPressed: _social == null
+                        ? () {}
+                        : (_submitting ? null : _submitSocial),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

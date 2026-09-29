@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'm_signup.dart' show PasswordField;
 import 'auth.dart';
 import 'registration_selection.dart';
+import 'social_login_buttons.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -79,8 +80,18 @@ class _LoginState extends State<Login> {
               ),
               const SizedBox(height: 8),
               Text(
-                '이메일과 비밀번호를 입력해주세요',
+                '카카오 계정이나 이메일로 로그인하세요',
                 style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+              ),
+
+              const SizedBox(height: 28),
+              SocialLoginButtons(
+                // 처음 온 소셜 사용자는 회원/회장 선택부터
+                onNeedsSignup: (social) => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => Registration(social: social),
+                  ),
+                ),
               ),
 
               _label('이메일 주소'),

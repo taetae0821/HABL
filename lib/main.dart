@@ -5,8 +5,11 @@ import 'src/form_club.dart';
 import 'src/find_club.dart';
 import 'src/auth.dart';
 import 'src/login.dart';
+import 'src/social_auth.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  initSocialAuth();
   runApp(const Main());
 }
 
