@@ -1,16 +1,21 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import './m_signup.dart' show PasswordField;
+import 'social_auth.dart';
+import 'social_login_buttons.dart';
+import 'theme.dart';
 
 class BSignup extends StatefulWidget {
-  const BSignup({super.key});
+  final PendingSocialSignup? social;
+
+  const BSignup({super.key, this.social});
 
   @override
   State<BSignup> createState() => _SignupState();
 }
 
 // 회장 가입 화면을 회원 가입과 구분하기 위한 금색 테마
-const _leaderColor = Color(0xFFE0A100);
+const _leaderColor = AppColors.leader;
 
 ThemeData _leaderTheme(BuildContext context) {
   final base = Theme.of(context);
@@ -23,6 +28,54 @@ ThemeData _leaderTheme(BuildContext context) {
 }
 
 class _SignupState extends State<BSignup> {
+  // 소셜 계정으로 가입 중이면 이메일/비밀번호 입력을 생략합니다
+  PendingSocialSignup? _social;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.social != null) _applySocial(widget.social!);
+  }
+
+  void _applySocial(PendingSocialSignup social) {
+    _social = social;
+    if (_nameController.text.isEmpty) {
+      _nameController.text = social.name ?? '';
+    }
+  }
+
+  void _startSocialSignup(PendingSocialSignup social) =>
+      setState(() => _applySocial(social));
+
+  // TODO: 한 줄 소개·활동 지역·운영 경험은 저장할 DB 컬럼이 아직 없어 서버로 보내지 않음
+  Future<void> _submitSocial() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    if (_nameController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('이름과 전화번호를 입력해주세요')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await completeSocialSignup(
+        _social!,
+        role: 'LEADER',
+        name: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+      );
+      navigator.popUntil((route) => route.isFirst);
+    } on SocialAuthException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   final _nameController = TextEditingController();
   final _birthController = TextEditingController();
   DateTime? _birthDate;
@@ -51,16 +104,16 @@ class _SignupState extends State<BSignup> {
   }
 
   Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8, top: 22),
-    child: Text(
-      text,
-      style: TextStyle(
-        fontSize: 13.5,
-        fontWeight: FontWeight.w700,
-        color: Colors.grey.shade800,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 8, top: 22),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      );
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
@@ -119,10 +172,8 @@ class _SignupState extends State<BSignup> {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: _leaderColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
@@ -132,7 +183,7 @@ class _SignupState extends State<BSignup> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFFB07A00),
+                        color: AppColors.leaderDark,
                       ),
                     ),
                   ),
@@ -145,13 +196,23 @@ class _SignupState extends State<BSignup> {
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '멤버들이 믿고 함께할 수 있도록 회장님을 소개해 주세요',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
+                ),
               ),
+
+              const SizedBox(height: 28),
+              if (_social == null)
+                SocialLoginButtons(onNeedsSignup: _startSocialSignup)
+              else
+                SocialSignupBanner(social: _social!),
 
               // 회장 전용 입력 영역
               const SizedBox(height: 24),
@@ -159,9 +220,11 @@ class _SignupState extends State<BSignup> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.grey.shade200),
+                  color: _leaderColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _leaderColor.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,9 +245,9 @@ class _SignupState extends State<BSignup> {
                     const SizedBox(height: 4),
                     Text(
                       '동호회 페이지에서 멤버들에게 보여지는 정보예요',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade600,
+                        color: AppColors.textSecondary,
                       ),
                     ),
 
@@ -194,10 +257,7 @@ class _SignupState extends State<BSignup> {
                       maxLength: 40,
                       decoration: InputDecoration(
                         hintText: '주말마다 함께 달릴 러닝 메이트를 찾아요!',
-                        prefixIcon: Icon(
-                          Icons.chat_bubble_outline,
-                          color: Colors.grey.shade500,
-                        ),
+                        prefixIcon: const Icon(Icons.chat_bubble_outline),
                       ),
                     ),
 
@@ -206,10 +266,7 @@ class _SignupState extends State<BSignup> {
                       controller: _regionController,
                       decoration: InputDecoration(
                         hintText: '서울 마포구',
-                        prefixIcon: Icon(
-                          Icons.place_outlined,
-                          color: Colors.grey.shade500,
-                        ),
+                        prefixIcon: const Icon(Icons.place_outlined),
                       ),
                     ),
 
@@ -239,10 +296,7 @@ class _SignupState extends State<BSignup> {
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: '홍길동',
-                  prefixIcon: Icon(
-                    Icons.person_outline,
-                    color: Colors.grey.shade500,
-                  ),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
 
@@ -253,58 +307,50 @@ class _SignupState extends State<BSignup> {
                 onTap: _pickBirthDate,
                 decoration: InputDecoration(
                   hintText: '2000.01.01',
-                  prefixIcon: Icon(
-                    Icons.cake_outlined,
-                    color: Colors.grey.shade500,
-                  ),
-                  suffixIcon: Icon(
-                    Icons.calendar_today_outlined,
-                    color: Colors.grey.shade500,
-                  ),
+                  prefixIcon: const Icon(Icons.cake_outlined),
+                  suffixIcon: const Icon(Icons.calendar_today_outlined),
                 ),
               ),
 
-              _label('이메일 주소'),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(
-                    Icons.mail_outline,
-                    color: Colors.grey.shade500,
+              if (_social == null) ...[
+                _label('이메일 주소'),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'name@example.com',
+                    prefixIcon: const Icon(Icons.mail_outline),
                   ),
                 ),
-              ),
+              ],
               _label('전화번호'),
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
                   hintText: '010-1234-1234',
-                  prefixIcon: Icon(
-                    Icons.phone_outlined,
-                    color: Colors.grey.shade500,
-                  ),
+                  prefixIcon: const Icon(Icons.phone_outlined),
                 ),
               ),
 
-              _label('비밀번호'),
-              PasswordField(
-                controller: _pwController,
-                hint: '8자 이상 입력하세요',
-                onChanged: (_) => setState(() {}),
-              ),
+              if (_social == null) ...[
+                _label('비밀번호'),
+                PasswordField(
+                  controller: _pwController,
+                  hint: '8자 이상 입력하세요',
+                  onChanged: (_) => setState(() {}),
+                ),
 
-              _label('비밀번호 확인'),
-              PasswordField(
-                controller: _pwConfirmController,
-                hint: '비밀번호를 한 번 더 입력하세요',
-                onChanged: (_) => setState(() {}),
-                errorText: confirmText.isNotEmpty && !isMatch
-                    ? '비밀번호가 일치하지 않습니다'
-                    : null,
-              ),
+                _label('비밀번호 확인'),
+                PasswordField(
+                  controller: _pwConfirmController,
+                  hint: '비밀번호를 한 번 더 입력하세요',
+                  onChanged: (_) => setState(() {}),
+                  errorText: confirmText.isNotEmpty && !isMatch
+                      ? '비밀번호가 일치하지 않습니다'
+                      : null,
+                ),
+              ],
 
               const SizedBox(height: 36),
               SizedBox(
@@ -322,7 +368,10 @@ class _SignupState extends State<BSignup> {
                     ],
                   ),
                   child: FilledButton(
-                    onPressed: () {},
+                    // TODO: 이메일 가입도 서버(/auth/signup)에 연결
+                    onPressed: _social == null
+                        ? () {}
+                        : (_submitting ? null : _submitSocial),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -338,10 +387,8 @@ class _SignupState extends State<BSignup> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    '이미 계정이 있으신가요?',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
+                  const Text('이미 계정이 있으신가요?',
+                      style: TextStyle(color: AppColors.textSecondary)),
                   TextButton(
                     onPressed: () {
                       // 처음 화면(로그인)으로 돌아갑니다
@@ -377,15 +424,11 @@ class _BirthDateSheetState extends State<_BirthDateSheet> {
   late int _month = widget.initial.month;
   late int _day = widget.initial.day;
 
-  late final _yearController = FixedExtentScrollController(
-    initialItem: _year - _firstYear,
-  );
-  late final _monthController = FixedExtentScrollController(
-    initialItem: _month - 1,
-  );
-  late final _dayController = FixedExtentScrollController(
-    initialItem: _day - 1,
-  );
+  late final _yearController =
+      FixedExtentScrollController(initialItem: _year - _firstYear);
+  late final _monthController =
+      FixedExtentScrollController(initialItem: _month - 1);
+  late final _dayController = FixedExtentScrollController(initialItem: _day - 1);
 
   // 오늘 이후 날짜는 고를 수 없게 제한합니다
   int get _maxMonth => _year == _today.year ? _today.month : 12;
@@ -407,14 +450,12 @@ class _BirthDateSheetState extends State<_BirthDateSheet> {
     if (_month > _maxMonth) {
       _month = _maxMonth;
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _monthController.jumpToItem(_month - 1),
-      );
+          (_) => _monthController.jumpToItem(_month - 1));
     }
     if (_day > _maxDay) {
       _day = _maxDay;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _dayController.jumpToItem(_day - 1),
-      );
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _dayController.jumpToItem(_day - 1));
     }
   }
 
@@ -525,9 +566,8 @@ class _BirthDateSheetState extends State<_BirthDateSheet> {
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
                     ),
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).pop(DateTime(_year, _month, _day)),
+                    onPressed: () => Navigator.of(context)
+                        .pop(DateTime(_year, _month, _day)),
                     child: const Text('확인'),
                   ),
                 ),

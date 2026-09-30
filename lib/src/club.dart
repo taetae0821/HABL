@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-
-const Color _primary = Color(0xFF4A4EED);
-const Color _primaryLight = Color(0xFFEEEEFF);
-const Color _cardBackground = Color(0xFFF7F7FB);
+import 'theme.dart';
 
 class Club extends StatefulWidget {
   const Club({
@@ -59,7 +56,6 @@ class _ClubState extends State<Club> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,8 +67,8 @@ class _ClubState extends State<Club> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 8),
                 decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,7 +80,8 @@ class _ClubState extends State<Club> {
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
-                        color: Colors.black,
+                        letterSpacing: -0.6,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -107,13 +104,31 @@ class _ClubState extends State<Club> {
     return Stack(
       children: [
         _buildImage(),
+        // 상단 버튼이 잘 보이도록 살짝 어둡게
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.center,
+                colors: [
+                  Colors.black.withValues(alpha: 0.35),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
         Positioned(
           top: MediaQuery.of(context).padding.top + 8,
           left: 16,
           child: CircleAvatar(
-            backgroundColor: Colors.white.withValues(alpha: 0.9),
+            backgroundColor: Colors.white.withValues(alpha: 0.95),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: AppColors.textPrimary,
+              ),
               onPressed: () => Navigator.maybePop(context),
             ),
           ),
@@ -124,7 +139,7 @@ class _ClubState extends State<Club> {
 
   // 대표 이미지: URL이 없거나 불러오기 실패하면 기본 이미지 표시
   Widget _buildImage() {
-    const double height = 280;
+    const double height = 300;
     final placeholder = Image.asset(
       'assets/badminton_img.png',
       width: double.infinity,
@@ -164,13 +179,13 @@ class _ClubState extends State<Club> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _primaryLight,
-        borderRadius: BorderRadius.circular(8),
+        gradient: AppColors.heroGradient,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        '회원 $_recruitCount명 모집 중',
+        '🔥 회원 $_recruitCount명 모집 중',
         style: const TextStyle(
-          color: _primary,
+          color: Colors.white,
           fontWeight: FontWeight.w800,
           fontSize: 13,
         ),
@@ -182,21 +197,29 @@ class _ClubState extends State<Club> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _cardBackground,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppColors.softShadow(),
       ),
       child: Column(
         children: [
           _InfoRow(
-            icon: Icons.group_outlined,
+            icon: Icons.groups_rounded,
+            color: AppColors.primary,
             label: '모집 인원',
             value: '$_recruitCount명',
           ),
           const SizedBox(height: 18),
-          _InfoRow(icon: Icons.schedule, label: '모임 시간', value: _meetingTime),
+          _InfoRow(
+            icon: Icons.schedule_rounded,
+            color: AppColors.secondary,
+            label: '모임 시간',
+            value: _meetingTime,
+          ),
           const SizedBox(height: 18),
           _InfoRow(
-            icon: Icons.location_on_outlined,
+            icon: Icons.place_rounded,
+            color: AppColors.leader,
             label: '위치',
             value: _location,
           ),
@@ -214,7 +237,7 @@ class _ClubState extends State<Club> {
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
-            color: Colors.black,
+            color: AppColors.textPrimary,
           ),
         ),
         const SizedBox(height: 16),
@@ -229,24 +252,32 @@ class _ClubState extends State<Club> {
   }
 
   Widget _buildJoinButton() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-        child: SizedBox(
-          height: 56,
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: _primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+    return ColoredBox(
+      color: AppColors.background,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+          child: SizedBox(
+            height: 56,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.heroGradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: AppColors.softShadow(AppColors.primary),
               ),
-            ),
-            onPressed: () {
-              // TODO: 가입 신청 기능
-            },
-            child: const Text(
-              '가입 신청하기',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                ),
+                onPressed: () {
+                  // TODO: 가입 신청 기능
+                },
+                child: const Text(
+                  '가입 신청하기',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                ),
+              ),
             ),
           ),
         ),
@@ -258,11 +289,13 @@ class _ClubState extends State<Club> {
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.icon,
+    required this.color,
     required this.label,
     required this.value,
   });
 
   final IconData icon;
+  final Color color;
   final String label;
   final String value;
 
@@ -274,10 +307,10 @@ class _InfoRow extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: color.withValues(alpha: 0.13),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: _primary, size: 22),
+          child: Icon(icon, color: color, size: 22),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -286,7 +319,10 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 13, color: Colors.black45),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -294,7 +330,7 @@ class _InfoRow extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ],
@@ -330,7 +366,7 @@ class _GuideStep extends StatelessWidget {
                 height: 28,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
-                  color: _primary,
+                  gradient: AppColors.heroGradient,
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -343,7 +379,9 @@ class _GuideStep extends StatelessWidget {
                 ),
               ),
               if (!isLast)
-                Expanded(child: Container(width: 2, color: _primaryLight)),
+                Expanded(
+                  child: Container(width: 2, color: AppColors.primaryLight),
+                ),
             ],
           ),
           const SizedBox(width: 14),
@@ -355,7 +393,7 @@ class _GuideStep extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 15,
                   height: 1.5,
-                  color: Colors.black87,
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),

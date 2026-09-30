@@ -1,21 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:habl/src/club.dart';
-
-const Color _primary = Color(0xFF4A4EED);
-const Color _primaryLight = Color(0xFFEEEEFF);
-const Color _background = Color(0xFFF7F7FB);
-
-// 동호회 개설 폼(Formclub)의 카테고리와 동일
-const List<String> _clubCategories = [
-  '운동',
-  '스터디',
-  '음악',
-  '미술/공예',
-  '여행',
-  '게임',
-  '봉사활동',
-  '기타',
-];
+import 'package:habl/src/theme.dart';
 
 class ClubSummary {
   const ClubSummary({
@@ -182,13 +167,9 @@ class _FindClubState extends State<FindClub> {
   }) async {
     final result = await showModalBottomSheet<_Pick>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,28 +177,23 @@ class _FindClubState extends State<FindClub> {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 19,
                   fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               Wrap(
                 spacing: 8,
-                runSpacing: 8,
+                runSpacing: 10,
                 children: [
                   for (final option in [null, ...options])
                     ChoiceChip(
                       label: Text(option ?? '전체'),
                       selected: option == selected,
-                      showCheckmark: false,
-                      selectedColor: _primary,
-                      backgroundColor: _background,
-                      side: BorderSide.none,
-                      labelStyle: TextStyle(
-                        color: option == selected
-                            ? Colors.white
-                            : Colors.black87,
-                        fontWeight: FontWeight.w600,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 8,
                       ),
                       onSelected: (_) => Navigator.pop(context, _Pick(option)),
                     ),
@@ -236,20 +212,63 @@ class _FindClubState extends State<FindClub> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
-      appBar: AppBar(
-        backgroundColor: _background,
-        elevation: 0,
-        title: const Text(
-          '동호회 찾기',
-          style: TextStyle(fontWeight: FontWeight.w800),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildGreeting(),
+            _buildSearchBar(),
+            _buildCategoryBar(),
+            Expanded(child: _buildBody()),
+          ],
         ),
       ),
-      body: Column(
+    );
+  }
+
+  // 상단 인사 + 위치 선택
+  Widget _buildGreeting() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSearchBar(),
-          _buildConditionBar(),
-          Expanded(child: _buildBody()),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '안녕하세요 👋',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '오늘은 어떤 모임에\n함께할까요?',
+                  style: TextStyle(
+                    fontSize: 24,
+                    height: 1.3,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _LocationButton(
+            value: _selectedLocation,
+            onTap: () => _pickCondition(
+              title: '어느 지역에서 찾을까요?',
+              options: _locations,
+              selected: _selectedLocation,
+              onSelected: (value) => _selectedLocation = value,
+            ),
+          ),
         ],
       ),
     );
@@ -257,79 +276,68 @@ class _FindClubState extends State<FindClub> {
 
   Widget _buildSearchBar() {
     final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide.none,
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (value) => setState(() => _query = value),
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: '동호회 이름, 종목, 지역으로 검색',
-          hintStyle: const TextStyle(color: Colors.black38),
-          prefixIcon: const Icon(Icons.search, color: Colors.black38),
-          suffixIcon: _query.isEmpty
-              ? null
-              : IconButton(
-                  icon: const Icon(Icons.close, color: Colors.black38),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _query = '');
-                  },
-                ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
-          border: border,
-          enabledBorder: border,
-          focusedBorder: border.copyWith(
-            borderSide: const BorderSide(color: _primary, width: 1.4),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppColors.softShadow(),
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: (value) => setState(() => _query = value),
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: '동호회 이름, 종목, 지역으로 검색',
+            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _query = '');
+                    },
+                  ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+            border: border,
+            enabledBorder: border,
+            focusedBorder: border.copyWith(
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
+            ),
           ),
         ),
       ),
     );
   }
 
-  // 카테고리 / 위치 조건 선택 버튼
-  Widget _buildConditionBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-      child: Row(
+  // 카테고리 가로 스크롤 칩 ('전체' + 각 카테고리)
+  Widget _buildCategoryBar() {
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
-          _ConditionButton(
-            label: '카테고리',
-            value: _selectedCategory,
-            onTap: () => _pickCondition(
-              title: '카테고리 선택',
-              options: _clubCategories,
-              selected: _selectedCategory,
-              onSelected: (value) => _selectedCategory = value,
-            ),
+          _CategoryChip(
+            emoji: '🌈',
+            label: '전체',
+            color: AppColors.textPrimary,
+            selected: _selectedCategory == null,
+            onTap: () => setState(() => _selectedCategory = null),
           ),
-          const SizedBox(width: 8),
-          _ConditionButton(
-            label: '위치',
-            value: _selectedLocation,
-            onTap: () => _pickCondition(
-              title: '위치 선택',
-              options: _locations,
-              selected: _selectedLocation,
-              onSelected: (value) => _selectedLocation = value,
-            ),
-          ),
-          const Spacer(),
-          if (_selectedCategory != null || _selectedLocation != null)
-            TextButton.icon(
-              onPressed: () => setState(() {
-                _selectedCategory = null;
-                _selectedLocation = null;
-              }),
-              style: TextButton.styleFrom(foregroundColor: Colors.black45),
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('초기화'),
+          for (final category in clubCategories)
+            _CategoryChip(
+              emoji: category.emoji,
+              label: category.name,
+              color: category.color,
+              selected: _selectedCategory == category.name,
+              onTap: () => setState(() => _selectedCategory =
+                  _selectedCategory == category.name ? null : category.name),
             ),
         ],
       ),
@@ -345,31 +353,89 @@ class _FindClubState extends State<FindClub> {
 
     // 아래로 당기면 새로 만들어진 동호회까지 다시 불러옴
     return RefreshIndicator(
+      color: AppColors.primary,
       onRefresh: _loadClubs,
       child: clubs.isEmpty
           ? _buildEmpty(_hasCondition ? '조건에 맞는 동호회가 없어요' : '아직 등록된 동호회가 없어요')
           : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              itemCount: clubs.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 14),
-              itemBuilder: (context, index) => _ClubCard(
-                club: clubs[index],
-                onTap: () => _openClub(clubs[index]),
-              ),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              itemCount: clubs.length + 1,
+              separatorBuilder: (context, index) =>
+                  SizedBox(height: index == 0 ? 12 : 14),
+              itemBuilder: (context, index) {
+                if (index == 0) return _buildListHeader(clubs.length);
+                final club = clubs[index - 1];
+                return _ClubCard(club: club, onTap: () => _openClub(club));
+              },
             ),
+    );
+  }
+
+  Widget _buildListHeader(int count) {
+    return Row(
+      children: [
+        Text(
+          _hasCondition ? '찾은 동호회' : '새로 올라온 동호회',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '$count',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
+        ),
+        const Spacer(),
+        if (_hasCondition)
+          TextButton.icon(
+            onPressed: () => setState(() {
+              _selectedCategory = null;
+              _selectedLocation = null;
+              _searchController.clear();
+              _query = '';
+            }),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('초기화'),
+          ),
+      ],
     );
   }
 
   Widget _buildEmpty(String message) {
     return ListView(
       children: [
-        const SizedBox(height: 120),
-        const Icon(Icons.groups_outlined, size: 56, color: Colors.black26),
-        const SizedBox(height: 12),
+        const SizedBox(height: 100),
+        Center(
+          child: Container(
+            width: 88,
+            height: 88,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Text('🔍', style: TextStyle(fontSize: 38)),
+          ),
+        ),
+        const SizedBox(height: 16),
         Center(
           child: Text(
             message,
-            style: const TextStyle(fontSize: 15, color: Colors.black45),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -385,78 +451,88 @@ class _ClubCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildThumbnail(),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _primaryLight,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        club.category,
-                        style: const TextStyle(
-                          color: _primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+    final category = categoryOf(club.category);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppColors.softShadow(),
+      ),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildThumbnail(),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: category.light,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${category.emoji} ${club.category}',
+                          style: TextStyle(
+                            color: category.dark,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      club.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black,
+                      const SizedBox(height: 6),
+                      Text(
+                        club.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      club.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.black54,
+                      const SizedBox(height: 3),
+                      Text(
+                        club.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _MetaText(
-                      icon: Icons.location_on_outlined,
-                      text: club.locationName,
-                    ),
-                    if (club.regularMeetingInfo != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 8),
                       _MetaText(
-                        icon: Icons.schedule,
-                        text: club.regularMeetingInfo!,
+                        icon: Icons.place_rounded,
+                        text: club.locationName,
                       ),
+                      if (club.regularMeetingInfo != null) ...[
+                        const SizedBox(height: 3),
+                        _MetaText(
+                          icon: Icons.schedule_rounded,
+                          text: club.regularMeetingInfo!,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -466,7 +542,7 @@ class _ClubCard extends StatelessWidget {
   // DB에 저장된 대표 이미지(image_url) 표시
   // URL이 없거나 불러오기 실패하면 상세 페이지와 같은 기본 이미지 사용
   Widget _buildThumbnail() {
-    const double size = 96;
+    const double size = 100;
     final placeholder = Image.asset(
       'assets/badminton_img.png',
       width: size,
@@ -476,7 +552,7 @@ class _ClubCard extends StatelessWidget {
     final url = club.imageUrl;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: (url == null || url.isEmpty)
           ? placeholder
           : url.startsWith('assets/')
@@ -488,7 +564,11 @@ class _ClubCard extends StatelessWidget {
               fit: BoxFit.cover,
               loadingBuilder: (context, child, progress) {
                 if (progress == null) return child;
-                return Container(width: size, height: size, color: _background);
+                return Container(
+                  width: size,
+                  height: size,
+                  color: AppColors.primaryLight,
+                );
               },
               errorBuilder: (context, error, stackTrace) => placeholder,
             ),
@@ -503,47 +583,92 @@ class _Pick {
   final String? value;
 }
 
-class _ConditionButton extends StatelessWidget {
-  const _ConditionButton({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
+// 상단 오른쪽 위치 선택 버튼
+class _LocationButton extends StatelessWidget {
+  const _LocationButton({required this.value, required this.onTap});
 
-  final String label;
   final String? value;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final isSelected = value != null;
+    final foreground = isSelected ? Colors.white : AppColors.secondary;
 
     return Material(
-      color: isSelected ? _primary : Colors.white,
+      color: isSelected ? AppColors.secondary : AppColors.secondaryLight,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(Icons.place_rounded, size: 16, color: foreground),
+              const SizedBox(width: 3),
               Text(
-                value ?? label,
+                value ?? '전체 지역',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : Colors.black87,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: foreground,
                 ),
               ),
-              const SizedBox(width: 2),
               Icon(
-                Icons.keyboard_arrow_down,
+                Icons.keyboard_arrow_down_rounded,
                 size: 18,
-                color: isSelected ? Colors.white : Colors.black45,
+                color: foreground,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.emoji,
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: selected ? color : AppColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: selected ? color : AppColors.border),
+            ),
+            child: Text(
+              '$emoji $label',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                color: selected ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
           ),
         ),
       ),
@@ -561,14 +686,18 @@ class _MetaText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: Colors.black38),
+        Icon(icon, size: 14, color: AppColors.secondary),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: Colors.black45),
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],

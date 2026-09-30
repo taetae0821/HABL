@@ -1,14 +1,66 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'social_auth.dart';
+import 'social_login_buttons.dart';
+import 'theme.dart';
 
 class Signup extends StatefulWidget {
-  const Signup({super.key});
+  final PendingSocialSignup? social;
+
+  const Signup({super.key, this.social});
 
   @override
   State<Signup> createState() => _SignupState();
 }
 
 class _SignupState extends State<Signup> {
+  // 소셜 계정으로 가입 중이면 이메일/비밀번호 입력을 생략합니다
+  PendingSocialSignup? _social;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.social != null) _applySocial(widget.social!);
+  }
+
+  void _applySocial(PendingSocialSignup social) {
+    _social = social;
+    if (_nameController.text.isEmpty) {
+      _nameController.text = social.name ?? '';
+    }
+  }
+
+  void _startSocialSignup(PendingSocialSignup social) =>
+      setState(() => _applySocial(social));
+
+  Future<void> _submitSocial() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    if (_nameController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('이름과 전화번호를 입력해주세요')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await completeSocialSignup(
+        _social!,
+        role: 'MEMBER',
+        name: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+      );
+      navigator.popUntil((route) => route.isFirst);
+    } on SocialAuthException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   final _nameController = TextEditingController();
   final _birthController = TextEditingController();
   DateTime? _birthDate;
@@ -32,10 +84,10 @@ class _SignupState extends State<Signup> {
         padding: const EdgeInsets.only(bottom: 8, top: 22),
         child: Text(
           text,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 13.5,
             fontWeight: FontWeight.w700,
-            color: Colors.grey.shade800,
+            color: AppColors.textPrimary,
           ),
         ),
       );
@@ -74,12 +126,13 @@ class _SignupState extends State<Signup> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: AppColors.heroGradient,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: AppColors.softShadow(AppColors.primary),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.person_add_alt_1_rounded,
-                  color: colorScheme.primary,
+                  color: Colors.white,
                   size: 28,
                 ),
               ),
@@ -90,20 +143,30 @@ class _SignupState extends State<Signup> {
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '몇 가지 정보만 입력하면 시작할 수 있어요',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
+                ),
               ),
+
+              const SizedBox(height: 28),
+              if (_social == null)
+                SocialLoginButtons(onNeedsSignup: _startSocialSignup)
+              else
+                SocialSignupBanner(social: _social!),
 
               _label('이름'),
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: '홍길동',
-                  prefixIcon: Icon(Icons.person_outline, color: Colors.grey.shade500),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
 
@@ -114,46 +177,50 @@ class _SignupState extends State<Signup> {
                 onTap: _pickBirthDate,
                 decoration: InputDecoration(
                   hintText: '2000.01.01',
-                  prefixIcon: Icon(Icons.cake_outlined, color: Colors.grey.shade500),
-                  suffixIcon: Icon(Icons.calendar_today_outlined, color: Colors.grey.shade500),
+                  prefixIcon: const Icon(Icons.cake_outlined),
+                  suffixIcon: const Icon(Icons.calendar_today_outlined),
                 ),
               ),
 
-              _label('이메일 주소'),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.mail_outline, color: Colors.grey.shade500),
+              if (_social == null) ...[
+                _label('이메일 주소'),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    hintText: 'name@example.com',
+                    prefixIcon: const Icon(Icons.mail_outline),
+                  ),
                 ),
-              ),
+              ],
               _label('전화번호'),
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
                   hintText: '010-1234-1234',
-                  prefixIcon: Icon(Icons.phone_outlined, color: Colors.grey.shade500),
+                  prefixIcon: const Icon(Icons.phone_outlined),
                 ),
               ),
 
-              _label('비밀번호'),
-              PasswordField(
-                controller: _pwController,
-                hint: '8자 이상 입력하세요',
-                onChanged: (_) => setState(() {}),
-              ),
+              if (_social == null) ...[
+                _label('비밀번호'),
+                PasswordField(
+                  controller: _pwController,
+                  hint: '8자 이상 입력하세요',
+                  onChanged: (_) => setState(() {}),
+                ),
 
-              _label('비밀번호 확인'),
-              PasswordField(
-                controller: _pwConfirmController,
-                hint: '비밀번호를 한 번 더 입력하세요',
-                onChanged: (_) => setState(() {}),
-                errorText: confirmText.isNotEmpty && !isMatch
-                    ? '비밀번호가 일치하지 않습니다'
-                    : null,
-              ),
+                _label('비밀번호 확인'),
+                PasswordField(
+                  controller: _pwConfirmController,
+                  hint: '비밀번호를 한 번 더 입력하세요',
+                  onChanged: (_) => setState(() {}),
+                  errorText: confirmText.isNotEmpty && !isMatch
+                      ? '비밀번호가 일치하지 않습니다'
+                      : null,
+                ),
+              ],
 
               const SizedBox(height: 36),
               SizedBox(
@@ -171,7 +238,10 @@ class _SignupState extends State<Signup> {
                     ],
                   ),
                   child: FilledButton(
-                    onPressed: () {},
+                    // TODO: 이메일 가입도 서버(/auth/signup)에 연결
+                    onPressed: _social == null
+                        ? () {}
+                        : (_submitting ? null : _submitSocial),
                     child: const Text('가입하기'),
                   ),
                 ),
@@ -180,8 +250,8 @@ class _SignupState extends State<Signup> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('이미 계정이 있으신가요?',
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  const Text('이미 계정이 있으신가요?',
+                      style: TextStyle(color: AppColors.textSecondary)),
                   TextButton(
                     onPressed: () {
                       // 처음 화면(로그인)으로 돌아갑니다
@@ -229,11 +299,10 @@ class _PasswordFieldState extends State<PasswordField> {
       decoration: InputDecoration(
         hintText: widget.hint,
         errorText: widget.errorText,
-        prefixIcon: Icon(Icons.lock_outline, color: Colors.grey.shade500),
+        prefixIcon: const Icon(Icons.lock_outline),
         suffixIcon: IconButton(
           icon: Icon(
             _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            color: Colors.grey.shade500,
           ),
           onPressed: () => setState(() => _obscure = !_obscure),
         ),

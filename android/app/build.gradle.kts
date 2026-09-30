@@ -4,6 +4,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// 앱과 같은 설정 파일(프로젝트 루트의 dart_defines.json)에서 카카오 키를 읽습니다
+val dartDefines: Map<*, *> = rootProject.file("../dart_defines.json").let { file ->
+    if (file.exists()) groovy.json.JsonSlurper().parse(file) as Map<*, *> else emptyMap<String, String>()
+}
+
 android {
     namespace = "com.example.habl"
     compileSdk = flutter.compileSdkVersion
@@ -23,6 +28,10 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 카카오 로그인 후 앱으로 돌아오는 스킴 (kakao{네이티브 앱 키})
+        manifestPlaceholders["kakaoNativeAppKey"] =
+            dartDefines["KAKAO_NATIVE_APP_KEY"]?.toString() ?: ""
     }
 
     buildTypes {
