@@ -6,6 +6,7 @@ import 'src/find_club.dart';
 import 'src/auth.dart';
 import 'src/login.dart';
 import 'src/social_auth.dart';
+import 'src/theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,8 @@ class Main extends StatelessWidget {
     // 로그인 안 되어 있으면 로그인 화면, 되어 있으면 메인 화면
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Habl',
+      theme: buildAppTheme(),
       home: ValueListenableBuilder<bool>(
         valueListenable: isLoggedIn,
         builder: (_, loggedIn, _) =>

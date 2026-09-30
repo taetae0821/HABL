@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'social_auth.dart';
+import 'theme.dart';
 
 // 카카오로 계속하기 버튼 (+ 이메일 구분선)
 // 이미 가입된 계정이면 바로 로그인되고, 처음이면 onNeedsSignup 이 호출됩니다.
@@ -91,15 +92,15 @@ class _SocialLoginButtonsState extends State<SocialLoginButtons> {
         const SizedBox(height: 24),
         Row(
           children: [
-            Expanded(child: Divider(color: Colors.grey.shade300)),
+            const Expanded(child: Divider()),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 '또는 이메일로',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                style: const TextStyle(fontSize: 13, color: AppColors.textHint),
               ),
             ),
-            Expanded(child: Divider(color: Colors.grey.shade300)),
+            const Expanded(child: Divider()),
           ],
         ),
       ],

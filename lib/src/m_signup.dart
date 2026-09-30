@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'social_auth.dart';
 import 'social_login_buttons.dart';
+import 'theme.dart';
 
 class Signup extends StatefulWidget {
   final PendingSocialSignup? social;
@@ -83,10 +84,10 @@ class _SignupState extends State<Signup> {
         padding: const EdgeInsets.only(bottom: 8, top: 22),
         child: Text(
           text,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 13.5,
             fontWeight: FontWeight.w700,
-            color: Colors.grey.shade800,
+            color: AppColors.textPrimary,
           ),
         ),
       );
@@ -125,12 +126,13 @@ class _SignupState extends State<Signup> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: AppColors.heroGradient,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: AppColors.softShadow(AppColors.primary),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.person_add_alt_1_rounded,
-                  color: colorScheme.primary,
+                  color: Colors.white,
                   size: 28,
                 ),
               ),
@@ -141,12 +143,16 @@ class _SignupState extends State<Signup> {
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '몇 가지 정보만 입력하면 시작할 수 있어요',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
+                ),
               ),
 
               const SizedBox(height: 28),
@@ -160,7 +166,7 @@ class _SignupState extends State<Signup> {
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: '홍길동',
-                  prefixIcon: Icon(Icons.person_outline, color: Colors.grey.shade500),
+                  prefixIcon: const Icon(Icons.person_outline),
                 ),
               ),
 
@@ -171,8 +177,8 @@ class _SignupState extends State<Signup> {
                 onTap: _pickBirthDate,
                 decoration: InputDecoration(
                   hintText: '2000.01.01',
-                  prefixIcon: Icon(Icons.cake_outlined, color: Colors.grey.shade500),
-                  suffixIcon: Icon(Icons.calendar_today_outlined, color: Colors.grey.shade500),
+                  prefixIcon: const Icon(Icons.cake_outlined),
+                  suffixIcon: const Icon(Icons.calendar_today_outlined),
                 ),
               ),
 
@@ -183,7 +189,7 @@ class _SignupState extends State<Signup> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     hintText: 'name@example.com',
-                    prefixIcon: Icon(Icons.mail_outline, color: Colors.grey.shade500),
+                    prefixIcon: const Icon(Icons.mail_outline),
                   ),
                 ),
               ],
@@ -193,7 +199,7 @@ class _SignupState extends State<Signup> {
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
                   hintText: '010-1234-1234',
-                  prefixIcon: Icon(Icons.phone_outlined, color: Colors.grey.shade500),
+                  prefixIcon: const Icon(Icons.phone_outlined),
                 ),
               ),
 
@@ -244,8 +250,8 @@ class _SignupState extends State<Signup> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('이미 계정이 있으신가요?',
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  const Text('이미 계정이 있으신가요?',
+                      style: TextStyle(color: AppColors.textSecondary)),
                   TextButton(
                     onPressed: () {
                       // 처음 화면(로그인)으로 돌아갑니다
@@ -293,11 +299,10 @@ class _PasswordFieldState extends State<PasswordField> {
       decoration: InputDecoration(
         hintText: widget.hint,
         errorText: widget.errorText,
-        prefixIcon: Icon(Icons.lock_outline, color: Colors.grey.shade500),
+        prefixIcon: const Icon(Icons.lock_outline),
         suffixIcon: IconButton(
           icon: Icon(
             _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            color: Colors.grey.shade500,
           ),
           onPressed: () => setState(() => _obscure = !_obscure),
         ),

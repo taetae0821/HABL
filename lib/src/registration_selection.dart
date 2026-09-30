@@ -3,10 +3,11 @@ import 'package:habl/src/m_signup.dart';
 import 'package:habl/src/b_signup.dart';
 import 'package:habl/src/social_auth.dart';
 import 'package:habl/src/social_login_buttons.dart';
+import 'package:habl/src/theme.dart';
 
 // 회원 / 회장 가입 화면과 같은 색을 씁니다
-const _memberColor = Color(0xFF6C5CE7);
-const _leaderColor = Color(0xFFE0A100);
+const _memberColor = AppColors.primary;
+const _leaderColor = AppColors.leader;
 
 class Registration extends StatelessWidget {
   // 소셜 로그인으로 넘어온 경우 가입 화면까지 전달합니다
@@ -17,7 +18,6 @@ class Registration extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F6FB),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -34,8 +34,9 @@ class Registration extends StatelessWidget {
                 height: 56,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: _memberColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: AppColors.heroGradient,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: AppColors.softShadow(AppColors.primary),
                 ),
                 child: const Text('🎉', style: TextStyle(fontSize: 26)),
               ),
@@ -47,12 +48,16 @@ class Registration extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
                   height: 1.3,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '나에게 맞는 가입 유형을 골라주세요',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
+                ),
               ),
 
               if (social != null) ...[
@@ -89,22 +94,22 @@ class Registration extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.secondaryLight,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.lightbulb_outline_rounded,
-                        size: 18, color: Colors.grey.shade500),
+                    const Icon(Icons.lightbulb_rounded,
+                        size: 18, color: AppColors.secondary),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '어느 쪽을 선택해도 모임 활동은 자유롭게 시작할 수 있으니 부담 없이 골라보세요!',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey.shade600,
+                          color: Color.lerp(
+                              AppColors.secondary, Colors.black, 0.45),
                           height: 1.45,
                         ),
                       ),
@@ -192,6 +197,7 @@ class _RoleCard extends StatelessWidget {
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.3,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           if (badge != null) ...[
@@ -203,9 +209,9 @@ class _RoleCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         description,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
-                          color: Colors.grey.shade600,
+                          color: AppColors.textSecondary,
                           height: 1.45,
                         ),
                       ),
@@ -239,8 +245,7 @@ class _RoleCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Padding(
                   padding: const EdgeInsets.only(top: 14),
-                  child: Icon(Icons.chevron_right_rounded,
-                      color: Colors.grey.shade400),
+                  child: Icon(Icons.chevron_right_rounded, color: color),
                 ),
               ],
             ),
