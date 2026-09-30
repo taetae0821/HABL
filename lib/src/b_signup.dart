@@ -51,16 +51,16 @@ class _SignupState extends State<BSignup> {
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8, top: 22),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-            color: Colors.grey.shade800,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 8, top: 22),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 13.5,
+        fontWeight: FontWeight.w700,
+        color: Colors.grey.shade800,
+      ),
+    ),
+  );
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
@@ -119,8 +119,10 @@ class _SignupState extends State<BSignup> {
                   ),
                   const Spacer(),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _leaderColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
@@ -180,8 +182,10 @@ class _SignupState extends State<BSignup> {
                     const SizedBox(height: 4),
                     Text(
                       '동호회 페이지에서 멤버들에게 보여지는 정보예요',
-                      style:
-                          TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
 
                     _label('한 줄 소개'),
@@ -190,8 +194,10 @@ class _SignupState extends State<BSignup> {
                       maxLength: 40,
                       decoration: InputDecoration(
                         hintText: '주말마다 함께 달릴 러닝 메이트를 찾아요!',
-                        prefixIcon: Icon(Icons.chat_bubble_outline,
-                            color: Colors.grey.shade500),
+                        prefixIcon: Icon(
+                          Icons.chat_bubble_outline,
+                          color: Colors.grey.shade500,
+                        ),
                       ),
                     ),
 
@@ -200,8 +206,10 @@ class _SignupState extends State<BSignup> {
                       controller: _regionController,
                       decoration: InputDecoration(
                         hintText: '서울 마포구',
-                        prefixIcon: Icon(Icons.place_outlined,
-                            color: Colors.grey.shade500),
+                        prefixIcon: Icon(
+                          Icons.place_outlined,
+                          color: Colors.grey.shade500,
+                        ),
                       ),
                     ),
 
@@ -231,7 +239,10 @@ class _SignupState extends State<BSignup> {
                 controller: _nameController,
                 decoration: InputDecoration(
                   hintText: '홍길동',
-                  prefixIcon: Icon(Icons.person_outline, color: Colors.grey.shade500),
+                  prefixIcon: Icon(
+                    Icons.person_outline,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
               ),
 
@@ -242,8 +253,14 @@ class _SignupState extends State<BSignup> {
                 onTap: _pickBirthDate,
                 decoration: InputDecoration(
                   hintText: '2000.01.01',
-                  prefixIcon: Icon(Icons.cake_outlined, color: Colors.grey.shade500),
-                  suffixIcon: Icon(Icons.calendar_today_outlined, color: Colors.grey.shade500),
+                  prefixIcon: Icon(
+                    Icons.cake_outlined,
+                    color: Colors.grey.shade500,
+                  ),
+                  suffixIcon: Icon(
+                    Icons.calendar_today_outlined,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
               ),
 
@@ -253,7 +270,10 @@ class _SignupState extends State<BSignup> {
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.mail_outline, color: Colors.grey.shade500),
+                  prefixIcon: Icon(
+                    Icons.mail_outline,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
               ),
               _label('전화번호'),
@@ -262,7 +282,10 @@ class _SignupState extends State<BSignup> {
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
                   hintText: '010-1234-1234',
-                  prefixIcon: Icon(Icons.phone_outlined, color: Colors.grey.shade500),
+                  prefixIcon: Icon(
+                    Icons.phone_outlined,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
               ),
 
@@ -315,8 +338,10 @@ class _SignupState extends State<BSignup> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('이미 계정이 있으신가요?',
-                      style: TextStyle(color: Colors.grey.shade600)),
+                  Text(
+                    '이미 계정이 있으신가요?',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
                   TextButton(
                     onPressed: () {
                       // 처음 화면(로그인)으로 돌아갑니다
@@ -352,11 +377,15 @@ class _BirthDateSheetState extends State<_BirthDateSheet> {
   late int _month = widget.initial.month;
   late int _day = widget.initial.day;
 
-  late final _yearController =
-      FixedExtentScrollController(initialItem: _year - _firstYear);
-  late final _monthController =
-      FixedExtentScrollController(initialItem: _month - 1);
-  late final _dayController = FixedExtentScrollController(initialItem: _day - 1);
+  late final _yearController = FixedExtentScrollController(
+    initialItem: _year - _firstYear,
+  );
+  late final _monthController = FixedExtentScrollController(
+    initialItem: _month - 1,
+  );
+  late final _dayController = FixedExtentScrollController(
+    initialItem: _day - 1,
+  );
 
   // 오늘 이후 날짜는 고를 수 없게 제한합니다
   int get _maxMonth => _year == _today.year ? _today.month : 12;
@@ -378,12 +407,14 @@ class _BirthDateSheetState extends State<_BirthDateSheet> {
     if (_month > _maxMonth) {
       _month = _maxMonth;
       WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _monthController.jumpToItem(_month - 1));
+        (_) => _monthController.jumpToItem(_month - 1),
+      );
     }
     if (_day > _maxDay) {
       _day = _maxDay;
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) => _dayController.jumpToItem(_day - 1));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _dayController.jumpToItem(_day - 1),
+      );
     }
   }
 
@@ -494,8 +525,9 @@ class _BirthDateSheetState extends State<_BirthDateSheet> {
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
                     ),
-                    onPressed: () => Navigator.of(context)
-                        .pop(DateTime(_year, _month, _day)),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pop(DateTime(_year, _month, _day)),
                     child: const Text('확인'),
                   ),
                 ),
