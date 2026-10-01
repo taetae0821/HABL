@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'auth.dart';
 import 'theme.dart';
 
 class Club extends StatefulWidget {
@@ -251,34 +252,68 @@ class _ClubState extends State<Club> {
     );
   }
 
+  // 회장은 다른 동호회에 가입할 수 없으므로 가입 버튼 대신 안내를 보여줌
   Widget _buildJoinButton() {
     return ColoredBox(
       color: AppColors.background,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-          child: SizedBox(
-            height: 56,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: AppColors.heroGradient,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: AppColors.softShadow(AppColors.primary),
-              ),
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                ),
-                onPressed: () {
-                  // TODO: 가입 신청 기능
-                },
-                child: const Text(
-                  '가입 신청하기',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                ),
-              ),
-            ),
+          child: ValueListenableBuilder<int?>(
+            valueListenable: leadingClubId,
+            builder: (context, myClubId, _) {
+              if (myClubId == null) return _buildApplyButton();
+              return _buildBlockedButton(
+                myClubId == widget.clubId
+                    ? '👑 내가 운영 중인 동호회예요'
+                    : '회장은 다른 동호회에 가입할 수 없어요',
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlockedButton(String message) {
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          disabledBackgroundColor: AppColors.border,
+          disabledForegroundColor: AppColors.textSecondary,
+        ),
+        onPressed: null,
+        child: Text(
+          message,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildApplyButton() {
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: AppColors.heroGradient,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppColors.softShadow(AppColors.primary),
+        ),
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+          ),
+          onPressed: () {
+            // TODO: 가입 신청 기능 (서버에서도 회장이면 가입을 거절해야 함)
+          },
+          child: const Text(
+            '가입 신청하기',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
         ),
       ),

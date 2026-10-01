@@ -7,6 +7,7 @@ import 'src/auth.dart';
 import 'src/login.dart';
 import 'src/social_auth.dart';
 import 'src/theme.dart';
+import 'src/profile.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +52,7 @@ class _HomePageState extends State<HomePage> {
     Center(child: Text('지도')),
     Formclub(),
     Center(child: Text('알람')),
-    Center(child: Text('프로필')),
+    Profile(),
   ];
 
   void _onItemTapped(int index) {

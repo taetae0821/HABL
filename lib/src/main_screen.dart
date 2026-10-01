@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'header.dart';
+import 'profile.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -16,7 +17,7 @@ class _MainScreenState extends State<MainScreen> {
     Center(child: Text('지도')),
     Center(child: Text('개설')),
     Center(child: Text('알람')),
-    Center(child: Text('프로필')),
+    Profile(),
   ];
 
   void _onItemTapped(int index) {
