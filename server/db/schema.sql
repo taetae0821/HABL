@@ -59,7 +59,6 @@ CREATE TABLE IF NOT EXISTS club_leaders (
   leader_intro VARCHAR(40) NOT NULL,
   activity_region VARCHAR(255) NOT NULL,
   operation_experience ENUM('NONE', 'UNDER_ONE_YEAR', 'ONE_TO_THREE_YEARS', 'OVER_THREE_YEARS') NOT NULL,
-  contact_number VARCHAR(20) NULL,
   assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_club_leaders_club_id (club_id),
