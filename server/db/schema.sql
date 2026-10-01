@@ -15,18 +15,11 @@ CREATE TABLE IF NOT EXISTS users (
   provider_id VARCHAR(255) NULL,
   terms_agreed_at DATETIME NOT NULL,
   privacy_agreed_at DATETIME NOT NULL,
-  marketing_agreed BOOLEAN NOT NULL DEFAULT FALSE,
-  marketing_agreed_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_email (email),
-  UNIQUE KEY uq_users_provider_provider_id (provider, provider_id),
-  CONSTRAINT chk_users_marketing_agreement CHECK (
-    (marketing_agreed = FALSE AND marketing_agreed_at IS NULL)
-    OR
-    (marketing_agreed = TRUE AND marketing_agreed_at IS NOT NULL)
-  )
+  UNIQUE KEY uq_users_provider_provider_id (provider, provider_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. 동호회 (clubs)
