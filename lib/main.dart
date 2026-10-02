@@ -8,6 +8,7 @@ import 'src/login.dart';
 import 'src/social_auth.dart';
 import 'src/theme.dart';
 import 'src/profile.dart';
+import 'src/alarm.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,7 +52,7 @@ class _HomePageState extends State<HomePage> {
     FindClub(),
     Center(child: Text('지도')),
     Formclub(),
-    Center(child: Text('알람')),
+    Alarm(),
     Profile(),
   ];
 
