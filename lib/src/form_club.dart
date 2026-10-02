@@ -14,6 +14,7 @@ class _FormclubState extends State<Formclub> {
   final _locationController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _maxMemberController = TextEditingController();
+  final _welcomeMessageController = TextEditingController(); // 가입 시 보낼 알람 메시지
 
   String? _selectedCategory;
 
@@ -23,6 +24,7 @@ class _FormclubState extends State<Formclub> {
     _locationController.dispose();
     _descriptionController.dispose();
     _maxMemberController.dispose();
+    _welcomeMessageController.dispose();
     super.dispose();
   }
 
@@ -128,6 +130,8 @@ class _FormclubState extends State<Formclub> {
                   return null;
                 },
               ),
+              const SizedBox(height: 28),
+              _buildWelcomeMessageBox(),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
@@ -157,6 +161,59 @@ class _FormclubState extends State<Formclub> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // 새 회원이 가입하면 알람으로 보낼 환영 메시지 입력 박스
+  // TODO: 동호회 생성 API 요청에 _welcomeMessageController.text 함께 전송
+  Widget _buildWelcomeMessageBox() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.notifications_active_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              SizedBox(width: 6),
+              Text(
+                '가입 알람 메시지',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '새 회원이 가입하면 이 메시지가 알람으로 전송돼요',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _welcomeMessageController,
+            maxLines: 3,
+            maxLength: 100,
+            decoration: const InputDecoration(
+              hintText: '예) 환영합니다! 첫 모임은 토요일 오후 2시 성동구민체육센터에서 만나요 🙌',
+            ),
+            validator: (value) => (value == null || value.trim().isEmpty)
+                ? '가입 알람 메시지를 입력해주세요.'
+                : null,
+          ),
+        ],
       ),
     );
   }
