@@ -30,8 +30,69 @@ class _LoginState extends State<Login> {
       ).showSnackBar(const SnackBar(content: Text('이메일과 비밀번호를 입력해주세요')));
       return;
     }
-    // TODO: 서버에 이메일/비밀번호 확인 요청
-    isLoggedIn.value = true;
+    // TODO: 서버에 이메일/비밀번호 확인 요청 (지금은 테스트 계정만 로그인 가능)
+    final user = findTestAccount(_emailController.text, _pwController.text);
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('아이디 또는 비밀번호가 올바르지 않아요')));
+      return;
+    }
+    loginAs(user);
+  }
+
+  // TODO: 테스트용 빠른 로그인 — 서버 로그인이 생기면 삭제
+  Widget _buildTestAccounts() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '🧪 테스트 계정 (비밀번호 $testPassword)',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (final user in testAccounts) ...[
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => loginAs(user),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: user.isLeader
+                          ? AppColors.leaderDark
+                          : AppColors.secondary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      textStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    child: Text(
+                      '${user.isLeader ? '👑' : '🙋'} ${user.name}\n(${user.loginId})',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                if (user != testAccounts.last) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _label(String text) => Padding(
@@ -87,12 +148,12 @@ class _LoginState extends State<Login> {
                     ),
                   ),
 
-                  _label('이메일 주소'),
+                  _label('아이디 (이메일 주소)'),
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      hintText: 'name@example.com',
+                      hintText: 'leader 또는 member',
                       prefixIcon: const Icon(Icons.mail_outline_rounded),
                     ),
                   ),
@@ -134,6 +195,7 @@ class _LoginState extends State<Login> {
                       ),
                     ),
                   ),
+                  _buildTestAccounts(),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

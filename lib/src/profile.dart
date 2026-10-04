@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:habl/src/auth.dart';
 import 'package:habl/src/club.dart';
+import 'package:habl/src/club_manage.dart';
 import 'package:habl/src/find_club.dart';
 import 'package:habl/src/theme.dart';
 
@@ -35,42 +36,48 @@ class _ProfileState extends State<Profile> {
   // TODO: DB 연결 후 로그인한 사용자(authToken)로 조회한 실제 데이터로 교체
   // (예: GET /users/me 응답의 이름·프로필 이미지, GET /users/me/clubs 응답)
   Future<void> _loadProfile() async {
+    final user = currentUser.value;
+
     setState(() {
-      _userName = '김하블';
-      _profileImageUrl = '';
-      _joinedClubs = const [
-        JoinedClub(
-          isLeader: true,
-          club: ClubSummary(
-            id: 1,
-            name: '스매시 파크 성동',
-            category: '운동',
-            description: '초보부터 실력자까지 함께 즐기는 배드민턴 모임입니다.',
-            locationName: '서울 성동구',
-            regularMeetingInfo: '매주 토요일 오후 2시',
-            imageUrl: 'assets/badminton_img.png',
-          ),
-        ),
-        JoinedClub(
-          club: ClubSummary(
-            id: 2,
-            name: '주말 북클럽',
-            category: '스터디',
-            description: '한 달에 한 권, 같이 읽고 이야기 나눠요.',
-            locationName: '서울 마포구',
-            regularMeetingInfo: '격주 일요일 오전 11시',
-            imageUrl: 'assets/sample/book_club.jpg',
-          ),
-        ),
+      _userName = user?.name ?? '';
+      _profileImageUrl = user?.profileImageUrl ?? '';
+      _joinedClubs = [
+        for (final id in user?.joinedClubIds ?? const <int>[])
+          if (sampleClubById(id) case final club?)
+            JoinedClub(club: club, isLeader: id == user?.leadingClubId),
       ];
       _isLoading = false;
     });
+  }
 
-    // 회장인 동호회가 있으면 앱 전체에 알려서 다른 동호회 가입을 막음
-    leadingClubId.value = _joinedClubs
-        .where((joined) => joined.isLeader)
-        .map((joined) => joined.club.id)
-        .firstOrNull;
+  void _openManage(ClubSummary club) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ClubManage(club: club)),
+    );
+  }
+
+  Future<void> _confirmLogout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('로그아웃 할까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+            ),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('로그아웃'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) logout();
   }
 
   void _openClub(ClubSummary club) {
@@ -101,7 +108,20 @@ class _ProfileState extends State<Profile> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            _buildHeader(),
+            Stack(
+              children: [
+                _buildHeader(),
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  right: 8,
+                  child: IconButton(
+                    tooltip: '로그아웃',
+                    onPressed: _confirmLogout,
+                    icon: const Icon(Icons.logout_rounded, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
             Transform.translate(
               offset: const Offset(0, -24), // 헤더를 살짝 덮도록 위로 올림
               child: Container(
@@ -214,6 +234,22 @@ class _ProfileState extends State<Profile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 회장이면 운영 중인 동호회의 부원 관리로 바로 이동
+        for (final joined in _joinedClubs.where((c) => c.isLeader)) ...[
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: () => _openManage(joined.club),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.leader,
+              ),
+              icon: const Icon(Icons.manage_accounts_rounded),
+              label: Text('${joined.club.name} 부원 관리'),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
         Row(
           children: [
             const Text(

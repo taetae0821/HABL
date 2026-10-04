@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:habl/src/auth.dart';
 import 'package:habl/src/club.dart';
+import 'package:habl/src/club_manage.dart';
 import 'package:habl/src/find_club.dart';
 import 'package:habl/src/theme.dart';
 
@@ -41,41 +43,31 @@ class _AlarmState extends State<Alarm> {
 
   // TODO: DB 연결 후 GET /users/me/meetings 처럼 가입한 동호회의
   // 다가오는 모임 일정을 서버에서 받아오도록 교체 (날짜순 정렬)
-  // (아래는 임시 샘플: 오늘 기준으로 날짜를 만들어 항상 '오늘' 알림이 보이게 함)
+  // (아래는 임시 샘플: 로그인한 계정이 가입한 동호회로 오늘부터 이틀 간격의 일정을 만듦)
   Future<void> _loadAlarms() async {
     final today = _dateOnly(DateTime.now());
+    final clubs = [
+      for (final id in currentUser.value?.joinedClubIds ?? const <int>[])
+        ?sampleClubById(id),
+    ];
 
     setState(() {
       _alarms = [
-        MeetingAlarm(
-          date: today,
-          time: '오후 2시',
-          club: const ClubSummary(
-            id: 1,
-            name: '스매시 파크 성동',
-            category: '운동',
-            description: '초보부터 실력자까지 함께 즐기는 배드민턴 모임입니다.',
-            locationName: '서울 성동구',
-            regularMeetingInfo: '매주 토요일 오후 2시',
-            imageUrl: 'assets/badminton_img.png',
+        for (var i = 0; i < clubs.length; i++)
+          MeetingAlarm(
+            club: clubs[i],
+            date: today.add(Duration(days: i * 2)),
+            // '매주 토요일 오후 2시' → '오후 2시'
+            time: clubs[i].regularMeetingInfo?.split('요일 ').last ?? '',
           ),
-        ),
-        MeetingAlarm(
-          date: today.add(const Duration(days: 2)),
-          time: '오전 11시',
-          club: const ClubSummary(
-            id: 2,
-            name: '주말 북클럽',
-            category: '스터디',
-            description: '한 달에 한 권, 같이 읽고 이야기 나눠요.',
-            locationName: '서울 마포구',
-            regularMeetingInfo: '격주 일요일 오전 11시',
-            imageUrl: 'assets/sample/book_club.jpg',
-          ),
-        ),
       ];
       _isLoading = false;
     });
+
+    // 알람 화면을 열면 받은 공지는 모두 읽음 처리 (탭 뱃지 사라짐)
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => markNoticesRead(currentUser.value),
+    );
   }
 
   void _openClub(ClubSummary club) {
@@ -126,6 +118,7 @@ class _AlarmState extends State<Alarm> {
                       onTap: () => _openClub(alarm.club),
                     ),
                   ),
+              _buildNotices(),
               if (upcomingAlarms.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 _buildSectionTitle('다가오는 모임', upcomingAlarms.length),
@@ -175,6 +168,37 @@ class _AlarmState extends State<Alarm> {
           ),
         ),
       ],
+    );
+  }
+
+  // 내가 가입한 동호회 회장이 올린 공지 알람
+  Widget _buildNotices() {
+    return ValueListenableBuilder<List<ClubNotice>>(
+      valueListenable: clubNotices,
+      builder: (context, _, _) {
+        final notices = noticesFor(currentUser.value);
+        if (notices.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 18),
+            _buildSectionTitle('새 공지', notices.length),
+            const SizedBox(height: 12),
+            for (final notice in notices)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _NoticeAlarmTile(
+                  notice: notice,
+                  onTap: () {
+                    final club = sampleClubById(notice.clubId);
+                    if (club != null) _openClub(club);
+                  },
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -339,6 +363,107 @@ class _TodayAlarmCard extends StatelessWidget {
                       color: Colors.white,
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 회장이 올린 공지 알림 한 건
+class _NoticeAlarmTile extends StatelessWidget {
+  const _NoticeAlarmTile({required this.notice, required this.onTap});
+
+  final ClubNotice notice;
+  final VoidCallback onTap;
+
+  // 방금 전 / N분 전 / N시간 전 / M월 D일
+  String get _timeAgo {
+    final diff = DateTime.now().difference(notice.createdAt);
+    if (diff.inMinutes < 1) return '방금 전';
+    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
+    if (diff.inDays < 1) return '${diff.inHours}시간 전';
+    return '${notice.createdAt.month}월 ${notice.createdAt.day}일';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppColors.softShadow(),
+      ),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.leader.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text('📢', style: TextStyle(fontSize: 24)),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${notice.clubName} 공지',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.leaderDark,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _timeAgo,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        notice.message,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          height: 1.45,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '👑 ${notice.authorName}',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

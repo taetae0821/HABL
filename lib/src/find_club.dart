@@ -34,6 +34,50 @@ class ClubSummary {
   }
 }
 
+// TODO: DB 연결 전 임시 샘플 동호회 (탐색·프로필·알람·부원 관리에서 함께 사용)
+// (assets/sample 사진은 Wikimedia Commons의 CC0 사진)
+const List<ClubSummary> sampleClubs = [
+  ClubSummary(
+    id: 1,
+    name: '스매시 파크 성동',
+    category: '운동',
+    description: '초보부터 실력자까지 함께 즐기는 배드민턴 모임입니다.',
+    locationName: '서울 성동구',
+    regularMeetingInfo: '매주 토요일 오후 2시',
+    imageUrl: 'assets/badminton_img.png',
+  ),
+  ClubSummary(
+    id: 2,
+    name: '주말 북클럽',
+    category: '스터디',
+    description: '한 달에 한 권, 같이 읽고 이야기 나눠요.',
+    locationName: '서울 마포구',
+    regularMeetingInfo: '격주 일요일 오전 11시',
+    imageUrl: 'assets/sample/book_club.jpg',
+  ),
+  ClubSummary(
+    id: 3,
+    name: '한강 러닝크루',
+    category: '운동',
+    description: '퇴근 후 한강에서 같이 5km 달려요.',
+    locationName: '서울 마포구',
+    regularMeetingInfo: '매주 수요일 오후 8시',
+    imageUrl: 'assets/sample/running_club.jpg',
+  ),
+  ClubSummary(
+    id: 4,
+    name: '성수 통기타 모임',
+    category: '음악',
+    description: '기타 초보도 환영! 좋아하는 노래를 함께 연주해요.',
+    locationName: '서울 성동구',
+    regularMeetingInfo: '매주 금요일 오후 7시',
+    imageUrl: 'assets/sample/guitar_club.jpg',
+  ),
+];
+
+ClubSummary? sampleClubById(int id) =>
+    sampleClubs.where((club) => club.id == id).firstOrNull;
+
 class FindClub extends StatefulWidget {
   const FindClub({super.key});
 
@@ -98,47 +142,9 @@ class _FindClubState extends State<FindClub> {
   // TODO: DB 연결 후 서버에서 동호회 목록을 받아오도록 교체
   // (예: GET /clubs 응답을 ClubSummary.fromJson으로 변환, 최신순 정렬)
   // imageUrl은 DB clubs.image_url 값
-  // (아래는 임시 샘플 이미지: assets/sample 사진은 Wikimedia Commons의 CC0 사진)
   Future<void> _loadClubs() async {
     setState(() {
-      _clubs = const [
-        ClubSummary(
-          id: 1,
-          name: '스매시 파크 성동',
-          category: '운동',
-          description: '초보부터 실력자까지 함께 즐기는 배드민턴 모임입니다.',
-          locationName: '서울 성동구',
-          regularMeetingInfo: '매주 토요일 오후 2시',
-          imageUrl: 'assets/badminton_img.png',
-        ),
-        ClubSummary(
-          id: 2,
-          name: '주말 북클럽',
-          category: '스터디',
-          description: '한 달에 한 권, 같이 읽고 이야기 나눠요.',
-          locationName: '서울 마포구',
-          regularMeetingInfo: '격주 일요일 오전 11시',
-          imageUrl: 'assets/sample/book_club.jpg',
-        ),
-        ClubSummary(
-          id: 3,
-          name: '한강 러닝크루',
-          category: '운동',
-          description: '퇴근 후 한강에서 같이 5km 달려요.',
-          locationName: '서울 마포구',
-          regularMeetingInfo: '매주 수요일 오후 8시',
-          imageUrl: 'assets/sample/running_club.jpg',
-        ),
-        ClubSummary(
-          id: 4,
-          name: '성수 통기타 모임',
-          category: '음악',
-          description: '기타 초보도 환영! 좋아하는 노래를 함께 연주해요.',
-          locationName: '서울 성동구',
-          regularMeetingInfo: '매주 금요일 오후 7시',
-          imageUrl: 'assets/sample/guitar_club.jpg',
-        ),
-      ];
+      _clubs = sampleClubs;
       _isLoading = false;
     });
   }
