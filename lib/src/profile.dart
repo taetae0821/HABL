@@ -80,8 +80,8 @@ class _ProfileState extends State<Profile> {
     if (ok == true) logout();
   }
 
-  void _openClub(ClubSummary club) {
-    Navigator.push(
+  Future<void> _openClub(ClubSummary club) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => Club(
@@ -93,6 +93,8 @@ class _ProfileState extends State<Profile> {
         ),
       ),
     );
+    // 상세 화면에서 탈퇴했을 수 있으니 돌아오면 목록 새로고침
+    if (mounted) _loadProfile();
   }
 
   @override

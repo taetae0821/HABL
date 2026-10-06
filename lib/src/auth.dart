@@ -65,6 +65,21 @@ void loginAs(AppUser user) {
   isLoggedIn.value = true;
 }
 
+// 동호회 탈퇴: 로그인한 사용자의 가입 목록에서 제거
+// TODO: DB 연결 후 DELETE /clubs/:id/members/me 로 탈퇴 요청
+void leaveClub(int clubId) {
+  final user = currentUser.value;
+  if (user == null) return;
+  currentUser.value = AppUser(
+    loginId: user.loginId,
+    name: user.name,
+    role: user.role,
+    profileImageUrl: user.profileImageUrl,
+    leadingClubId: user.leadingClubId,
+    joinedClubIds: user.joinedClubIds.where((id) => id != clubId).toList(),
+  );
+}
+
 void logout() {
   authToken = null;
   currentUser.value = null;
