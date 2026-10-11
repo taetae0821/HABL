@@ -9,6 +9,7 @@ import 'src/social_auth.dart';
 import 'src/theme.dart';
 import 'src/profile.dart';
 import 'src/alarm.dart';
+import 'src/splash.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,20 +17,34 @@ void main() {
   runApp(const Main());
 }
 
-class Main extends StatelessWidget {
+class Main extends StatefulWidget {
   const Main({super.key});
 
   @override
+  State<Main> createState() => _MainState();
+}
+
+class _MainState extends State<Main> {
+  bool _splashDone = false;
+
+  @override
   Widget build(BuildContext context) {
-    // 로그인 안 되어 있으면 로그인 화면, 되어 있으면 메인 화면
+    // 처음엔 로딩 화면, 끝나면 로그인 여부에 따라 로그인 / 메인 화면
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Habl',
       theme: buildAppTheme(),
-      home: ValueListenableBuilder<bool>(
-        valueListenable: isLoggedIn,
-        builder: (_, loggedIn, _) =>
-            loggedIn ? const HomePage() : const Login(),
+      home: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 500),
+        child: _splashDone
+            ? ValueListenableBuilder<bool>(
+                valueListenable: isLoggedIn,
+                builder: (_, loggedIn, _) =>
+                    loggedIn ? const HomePage() : const Login(),
+              )
+            : SplashScreen(
+                onFinished: () => setState(() => _splashDone = true),
+              ),
       ),
     );
   }
