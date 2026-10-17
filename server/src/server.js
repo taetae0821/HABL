@@ -9,6 +9,7 @@ import {
   isProviderConfigured,
   verifySocialToken,
 } from "./social_auth.js";
+import { clubsRouter } from "./routes/clubs.js";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -233,6 +234,9 @@ app.post("/auth/social/signup", async (request, response) => {
       .json({ message: "회원가입 처리 중 오류가 발생했습니다." });
   }
 });
+
+// 동호회 / 가입 신청 API
+app.use("/clubs", clubsRouter);
 
 app.listen(port, () => {
   console.log(`HABL API listening on port ${port}`);
