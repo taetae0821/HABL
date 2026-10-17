@@ -17,8 +17,6 @@ CREATE TABLE IF NOT EXISTS users (
   role ENUM('MEMBER', 'LEADER') NOT NULL DEFAULT 'MEMBER', -- 회원: 여러 동호회 가입 / 회장: 동호회 1개 개설, 가입 불가
   provider ENUM('LOCAL', 'KAKAO') NOT NULL,
   provider_id VARCHAR(255) NULL,
-  terms_agreed_at DATETIME NOT NULL,
-  privacy_agreed_at DATETIME NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -50,11 +48,12 @@ CREATE TABLE IF NOT EXISTS clubs (
   CONSTRAINT chk_clubs_longitude CHECK (longitude BETWEEN -180 AND 180)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. 동호회 회장 정보
+-- 3. 동호회 회장 프로필
+-- 회장 가입 시 club_id 없이 생성되고, 동호회를 개설하면 club_id 가 채워진다.
 -- 한 동호회에는 한 명의 회장, 한 회장은 하나의 동호회만 개설할 수 있다.
 CREATE TABLE IF NOT EXISTS club_leaders (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  club_id BIGINT UNSIGNED NOT NULL,
+  club_id BIGINT UNSIGNED NULL, -- 아직 동호회를 개설하지 않았으면 NULL
   user_id BIGINT UNSIGNED NOT NULL,
   leader_intro VARCHAR(40) NULL,
   activity_region VARCHAR(255) NULL,
@@ -63,7 +62,8 @@ CREATE TABLE IF NOT EXISTS club_leaders (
   PRIMARY KEY (id),
   UNIQUE KEY uq_club_leaders_club_id (club_id),
   UNIQUE KEY uq_club_leaders_user_id (user_id),
-  CONSTRAINT fk_club_leaders_club FOREIGN KEY (club_id) REFERENCES clubs (id) ON DELETE CASCADE ON UPDATE CASCADE,
+  -- 동호회가 삭제돼도 회장 프로필은 남긴다 (club_id 만 NULL)
+  CONSTRAINT fk_club_leaders_club FOREIGN KEY (club_id) REFERENCES clubs (id) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_club_leaders_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT chk_club_leaders_profile CHECK (
     TRIM(leader_intro) <> ''
