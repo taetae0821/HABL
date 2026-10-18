@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:habl/src/api_client.dart';
 import 'package:habl/src/club.dart';
 import 'package:habl/src/theme.dart';
 
@@ -23,7 +26,7 @@ class ClubSummary {
 
   factory ClubSummary.fromJson(Map<String, dynamic> json) {
     return ClubSummary(
-      id: json['id'] as int,
+      id: (json['id'] as num).toInt(),
       name: json['name'] as String,
       category: json['category_name'] as String,
       description: json['description'] as String,
@@ -88,6 +91,9 @@ class FindClub extends StatefulWidget {
 class _FindClubState extends State<FindClub> {
   List<ClubSummary> _clubs = [];
   bool _isLoading = true;
+  String? _loadError;
+  int _loadGeneration = 0;
+  Timer? _searchDebounce;
 
   final _searchController = TextEditingController();
   String _query = '';
@@ -104,6 +110,8 @@ class _FindClubState extends State<FindClub> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _loadGeneration++;
     _searchController.dispose();
     super.dispose();
   }
@@ -139,14 +147,47 @@ class _FindClubState extends State<FindClub> {
     }).toList();
   }
 
-  // TODO: DB 연결 후 서버에서 동호회 목록을 받아오도록 교체
-  // (예: GET /clubs 응답을 ClubSummary.fromJson으로 변환, 최신순 정렬)
-  // imageUrl은 DB clubs.image_url 값
   Future<void> _loadClubs() async {
+    final generation = ++_loadGeneration;
+    final queryParameters = <String, String>{};
+    final search = _query.trim();
+    if (search.isNotEmpty) queryParameters['search'] = search;
+    if (_selectedCategory case final category?) {
+      queryParameters['category'] = category;
+    }
+
     setState(() {
-      _clubs = sampleClubs;
-      _isLoading = false;
+      _isLoading = true;
+      _loadError = null;
     });
+    try {
+      final response = await apiGet(
+        '/clubs',
+        queryParameters: queryParameters.isEmpty ? null : queryParameters,
+      );
+      final rawClubs = response['clubs'];
+      if (rawClubs is! List) {
+        throw const FormatException('동호회 목록 응답 형식이 올바르지 않습니다.');
+      }
+      final clubs = rawClubs.map((rawClub) {
+        if (rawClub is! Map<String, dynamic>) {
+          throw const FormatException('동호회 정보 응답 형식이 올바르지 않습니다.');
+        }
+        return ClubSummary.fromJson(rawClub);
+      }).toList();
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _clubs = clubs);
+    } on ApiException catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _loadError = error.message);
+    } on FormatException catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _loadError = error.message);
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _openClub(ClubSummary club) {
@@ -295,11 +336,21 @@ class _FindClubState extends State<FindClub> {
         ),
         child: TextField(
           controller: _searchController,
-          onChanged: (value) => setState(() => _query = value),
+          onChanged: (value) {
+            setState(() => _query = value);
+            _searchDebounce?.cancel();
+            _searchDebounce = Timer(
+              const Duration(milliseconds: 300),
+              _loadClubs,
+            );
+          },
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: '동호회 이름, 종목, 지역으로 검색',
-            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primary),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: AppColors.primary,
+            ),
             suffixIcon: _query.isEmpty
                 ? null
                 : IconButton(
@@ -307,13 +358,18 @@ class _FindClubState extends State<FindClub> {
                     onPressed: () {
                       _searchController.clear();
                       setState(() => _query = '');
+                      _searchDebounce?.cancel();
+                      _loadClubs();
                     },
                   ),
             contentPadding: const EdgeInsets.symmetric(vertical: 16),
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.4,
+              ),
             ),
           ),
         ),
@@ -334,7 +390,10 @@ class _FindClubState extends State<FindClub> {
             label: '전체',
             color: AppColors.textPrimary,
             selected: _selectedCategory == null,
-            onTap: () => setState(() => _selectedCategory = null),
+            onTap: () {
+              setState(() => _selectedCategory = null);
+              _loadClubs();
+            },
           ),
           for (final category in clubCategories)
             _CategoryChip(
@@ -342,8 +401,14 @@ class _FindClubState extends State<FindClub> {
               label: category.name,
               color: category.color,
               selected: _selectedCategory == category.name,
-              onTap: () => setState(() => _selectedCategory =
-                  _selectedCategory == category.name ? null : category.name),
+              onTap: () {
+                setState(() {
+                  _selectedCategory = _selectedCategory == category.name
+                      ? null
+                      : category.name;
+                });
+                _loadClubs();
+              },
             ),
         ],
       ),
@@ -353,6 +418,22 @@ class _FindClubState extends State<FindClub> {
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (_loadError != null) {
+      return ListView(
+        children: [
+          const SizedBox(height: 100),
+          const Icon(Icons.cloud_off_outlined, size: 48),
+          const SizedBox(height: 12),
+          Center(child: Text(_loadError!)),
+          Center(
+            child: TextButton(
+              onPressed: _loadClubs,
+              child: const Text('다시 시도'),
+            ),
+          ),
+        ],
+      );
     }
 
     final clubs = _filteredClubs;

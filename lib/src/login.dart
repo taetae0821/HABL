@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'm_signup.dart' show PasswordField;
-import 'auth.dart';
+import 'api_client.dart';
+import 'auth_api.dart';
 import 'registration_selection.dart';
 import 'social_login_buttons.dart';
 import 'theme.dart';
@@ -15,6 +16,7 @@ class Login extends StatefulWidget {
 class _LoginState extends State<Login> {
   final _emailController = TextEditingController();
   final _pwController = TextEditingController();
+  bool _isLoggingIn = false;
 
   @override
   void dispose() {
@@ -23,76 +25,29 @@ class _LoginState extends State<Login> {
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (_emailController.text.trim().isEmpty || _pwController.text.isEmpty) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('이메일과 비밀번호를 입력해주세요')));
       return;
     }
-    // TODO: 서버에 이메일/비밀번호 확인 요청 (지금은 테스트 계정만 로그인 가능)
-    final user = findTestAccount(_emailController.text, _pwController.text);
-    if (user == null) {
+    setState(() => _isLoggingIn = true);
+    try {
+      await loginWithEmail(_emailController.text, _pwController.text);
+    } on ApiException catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('아이디 또는 비밀번호가 올바르지 않아요')));
-      return;
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } finally {
+      if (mounted) setState(() => _isLoggingIn = false);
     }
-    loginAs(user);
-  }
-
-  // TODO: 테스트용 빠른 로그인 — 서버 로그인이 생기면 삭제
-  Widget _buildTestAccounts() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '🧪 테스트 계정 (비밀번호 $testPassword)',
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              for (final user in testAccounts) ...[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => loginAs(user),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: user.isLeader
-                          ? AppColors.leaderDark
-                          : AppColors.secondary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      textStyle: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    child: Text(
-                      '${user.isLeader ? '👑' : '🙋'} ${user.name}\n(${user.loginId})',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-                if (user != testAccounts.last) const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _label(String text) => Padding(
@@ -153,7 +108,7 @@ class _LoginState extends State<Login> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      hintText: 'leader 또는 member',
+                      hintText: '이메일 주소를 입력하세요',
                       prefixIcon: const Icon(Icons.mail_outline_rounded),
                     ),
                   ),
@@ -190,12 +145,19 @@ class _LoginState extends State<Login> {
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
                         ),
-                        onPressed: _login,
-                        child: const Text('로그인'),
+                        onPressed: _isLoggingIn ? null : _login,
+                        child: _isLoggingIn
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                ),
+                              )
+                            : const Text('로그인'),
                       ),
                     ),
                   ),
-                  _buildTestAccounts(),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

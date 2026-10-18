@@ -141,6 +141,60 @@ async function getClubDetail(clubId, user) {
 
 // ---------- 동호회 ----------
 
+// 공개 동호회 목록. 카테고리와 검색어가 있으면 조건에 맞춰 최신순으로 반환합니다.
+clubsRouter.get("/", async (request, response) => {
+  if (
+    (request.query.category !== undefined &&
+      typeof request.query.category !== "string") ||
+    (request.query.search !== undefined &&
+      typeof request.query.search !== "string")
+  ) {
+    throw new HttpError(400, "검색 조건을 확인해주세요.");
+  }
+  const category =
+    typeof request.query.category === "string"
+      ? request.query.category.trim()
+      : "";
+  const search =
+    typeof request.query.search === "string"
+      ? request.query.search.trim()
+      : "";
+
+  if (category && !CLUB_CATEGORIES.includes(category)) {
+    throw new HttpError(400, "지원하지 않는 카테고리입니다.");
+  }
+  if (search.length > 100) {
+    throw new HttpError(400, "검색어는 100자 이하로 입력해주세요.");
+  }
+
+  const conditions = [];
+  const parameters = [];
+  if (category) {
+    conditions.push("c.category = ?");
+    parameters.push(category);
+  }
+  if (search) {
+    const escapedSearch = search.replace(/[!%_]/g, "!$&");
+    conditions.push(
+      "(c.name LIKE ? ESCAPE '!' OR c.description LIKE ? ESCAPE '!' OR " +
+        "c.category LIKE ? ESCAPE '!' OR c.location_name LIKE ? ESCAPE '!')",
+    );
+    const searchPattern = `%${escapedSearch}%`;
+    parameters.push(searchPattern, searchPattern, searchPattern, searchPattern);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const [clubs] = await pool.query(
+    `SELECT ${CLUB_COLUMNS}
+     FROM clubs c
+     ${whereClause}
+     ORDER BY c.created_at DESC, c.id DESC`,
+    parameters,
+  );
+  response.json({ clubs });
+});
+
 // 동호회 상세. 로그인했다면 my_status 로 가입 상태를 알려줍니다.
 clubsRouter.get("/:clubId", optionalAuth, async (request, response) => {
   const club = await getClubDetail(parseId(request.params.clubId), request.user);

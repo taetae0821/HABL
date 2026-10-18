@@ -9,6 +9,8 @@ import {
   isProviderConfigured,
   verifySocialToken,
 } from "./social_auth.js";
+import { errorHandler } from "./http_error.js";
+import { requireAuth } from "./middleware/auth.js";
 import { clubsRouter } from "./routes/clubs.js";
 
 const app = express();
@@ -117,6 +119,97 @@ function issueToken(user) {
     expiresIn: "30d",
   });
 }
+
+app.post("/auth/login", async (request, response) => {
+  const { email, password } = request.body ?? {};
+  const normalizedEmail =
+    typeof email === "string" ? email.trim().toLowerCase() : "";
+
+  if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) ||
+    typeof password !== "string" ||
+    password.length === 0
+  ) {
+    return response
+      .status(400)
+      .json({ message: "올바른 이메일과 비밀번호를 입력해주세요." });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, password_hash
+       FROM users
+       WHERE email = ? AND provider = 'LOCAL'
+       LIMIT 1`,
+      [normalizedEmail],
+    );
+    const account = rows[0];
+    const passwordMatches =
+      typeof account?.password_hash === "string" &&
+      (await bcrypt.compare(password, account.password_hash));
+
+    if (!passwordMatches) {
+      return response
+        .status(401)
+        .json({ message: "이메일 또는 비밀번호가 올바르지 않습니다." });
+    }
+
+    const user = await findUserById(account.id);
+    return response.json({ token: issueToken(user), user });
+  } catch (error) {
+    console.error(error);
+    return response
+      .status(500)
+      .json({ message: "로그인 처리 중 오류가 발생했습니다." });
+  }
+});
+
+app.get("/users/me", requireAuth, async (request, response) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT u.id, u.name, u.email, u.role, u.provider, u.created_at,
+              cl.club_id AS leading_club_id,
+              cm.club_id AS joined_club_id
+       FROM users u
+       LEFT JOIN club_leaders cl ON cl.user_id = u.id
+       LEFT JOIN club_members cm
+         ON cm.user_id = u.id AND cm.status = 'APPROVED'
+       WHERE u.id = ?
+       ORDER BY cm.club_id`,
+      [request.user.id],
+    );
+    if (rows.length === 0) {
+      return response.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    }
+
+    const first = rows[0];
+    const joinedClubIds = [
+      ...new Set(
+        rows
+          .flatMap((row) => [row.joined_club_id, row.leading_club_id])
+          .filter((clubId) => clubId !== null)
+          .map(Number),
+      ),
+    ];
+    return response.json({
+      user: {
+        id: first.id,
+        name: first.name,
+        email: first.email,
+        role: first.role,
+        provider: first.provider,
+        created_at: first.created_at,
+        leading_club_id: first.leading_club_id,
+        joined_club_ids: joinedClubIds,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return response
+      .status(500)
+      .json({ message: "사용자 정보를 불러오지 못했습니다." });
+  }
+});
 
 async function findUserById(id) {
   const [rows] = await pool.query(
@@ -237,6 +330,7 @@ app.post("/auth/social/signup", async (request, response) => {
 
 // 동호회 / 가입 신청 API
 app.use("/clubs", clubsRouter);
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`HABL API listening on port ${port}`);

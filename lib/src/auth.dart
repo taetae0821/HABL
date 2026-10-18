@@ -31,35 +31,46 @@ class AppUser {
   final List<int> joinedClubIds; // 가입한 동호회 id (운영 중인 동호회 포함)
 
   bool get isLeader => role == 'LEADER';
+
+  factory AppUser.fromJson(Map<String, dynamic> json) {
+    final email = json['email'];
+    final name = json['name'];
+    final role = json['role'];
+    if (name is! String ||
+        role is! String ||
+        !const {'MEMBER', 'LEADER'}.contains(role)) {
+      throw const FormatException('사용자 정보 응답에 필수 값이 없습니다.');
+    }
+
+    final rawJoinedClubIds = json['joined_club_ids'];
+    if (rawJoinedClubIds is! List) {
+      throw const FormatException('가입 동호회 목록 응답 형식이 올바르지 않습니다.');
+    }
+    final joinedClubIds = rawJoinedClubIds.map((id) {
+      if (id is! num) {
+        throw const FormatException('가입 동호회 ID 형식이 올바르지 않습니다.');
+      }
+      return id.toInt();
+    }).toList();
+    final rawLeadingClubId = json['leading_club_id'];
+    if (rawLeadingClubId != null && rawLeadingClubId is! num) {
+      throw const FormatException('운영 동호회 ID 형식이 올바르지 않습니다.');
+    }
+
+    return AppUser(
+      loginId: email is String ? email : '',
+      name: name,
+      role: role,
+      leadingClubId: rawLeadingClubId is num ? rawLeadingClubId.toInt() : null,
+      joinedClubIds: joinedClubIds,
+    );
+  }
 }
 
 final ValueNotifier<AppUser?> currentUser = ValueNotifier(null);
 
-// TODO: 서버 연결 전 테스트용 계정 — 서버 로그인이 생기면 삭제
-const String testPassword = '1234';
-const List<AppUser> testAccounts = [
-  AppUser(
-    loginId: 'leader',
-    name: '김회장',
-    role: 'LEADER',
-    leadingClubId: 1,
-    joinedClubIds: [1],
-  ),
-  AppUser(
-    loginId: 'member',
-    name: '김회원',
-    role: 'MEMBER',
-    joinedClubIds: [1, 2],
-  ),
-];
-
-// 아이디·비밀번호가 맞는 테스트 계정 (없으면 null)
-AppUser? findTestAccount(String loginId, String password) {
-  if (password != testPassword) return null;
-  return testAccounts.where((u) => u.loginId == loginId.trim()).firstOrNull;
-}
-
-void loginAs(AppUser user) {
+void authenticateUser(AppUser user, String token) {
+  authToken = token;
   currentUser.value = user;
   leadingClubId.value = user.leadingClubId;
   isLoggedIn.value = true;

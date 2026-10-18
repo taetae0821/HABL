@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'api_client.dart';
 import 'social_auth.dart';
 import 'theme.dart';
 
@@ -34,7 +35,11 @@ class _SocialLoginButtonsState extends State<SocialLoginButtons> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e is SocialAuthException ? e.message : '로그인 중 오류가 발생했습니다.',
+            e is SocialAuthException
+                ? e.message
+                : e is ApiException
+                ? e.message
+                : '로그인 중 오류가 발생했습니다.',
           ),
         ),
       );

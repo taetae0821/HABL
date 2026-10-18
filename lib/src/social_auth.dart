@@ -1,16 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
-import 'auth.dart';
+import 'api_client.dart';
+import 'auth_api.dart';
 
-// 프로젝트 루트의 dart_defines.json 에서 읽습니다 (--dart-define-from-file)
-const apiBaseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://10.0.2.2:3000', // 안드로이드 에뮬레이터에서 본 내 PC
-);
 const kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
 
 enum SocialProvider {
@@ -73,49 +66,13 @@ Future<String> _kakaoAccessToken() async {
   }
 }
 
-Future<Map<String, dynamic>> _post(
-  String path,
-  Map<String, dynamic> body,
-) async {
-  final http.Response response;
-  try {
-    response = await http
-        .post(
-          Uri.parse('$apiBaseUrl$path'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(body),
-        )
-        .timeout(const Duration(seconds: 15));
-  } catch (_) {
-    throw SocialAuthException('서버에 연결할 수 없습니다.');
-  }
-
-  Map<String, dynamic> data;
-  try {
-    data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-  } catch (_) {
-    data = {};
-  }
-  if (response.statusCode >= 400) {
-    throw SocialAuthException(
-      data['message'] as String? ?? '요청을 처리하지 못했습니다.',
-    );
-  }
-  return data;
-}
-
-void _completeLogin(Map<String, dynamic> data) {
-  authToken = data['token'] as String;
-  isLoggedIn.value = true;
-}
-
 // 소셜 로그인. 이미 가입된 사용자면 로그인 처리 후 null,
 // 처음 온 사용자면 가입에 필요한 정보를 돌려줍니다.
 Future<PendingSocialSignup?> signInWithSocial(SocialProvider provider) async {
   final token = switch (provider) {
     SocialProvider.kakao => await _kakaoAccessToken(),
   };
-  final data = await _post('/auth/social/login', {
+  final data = await apiPost('/auth/social/login', {
     'provider': provider.code,
     'token': token,
   });
@@ -129,7 +86,11 @@ Future<PendingSocialSignup?> signInWithSocial(SocialProvider provider) async {
       email: profile['email'] as String?,
     );
   }
-  _completeLogin(data);
+  final loginToken = data['token'];
+  if (loginToken is! String || loginToken.isEmpty) {
+    throw SocialAuthException('로그인 응답에 토큰이 없습니다.');
+  }
+  await completeLogin(loginToken);
   return null;
 }
 
@@ -140,12 +101,16 @@ Future<void> completeSocialSignup(
   required String name,
   required String phoneNumber,
 }) async {
-  final data = await _post('/auth/social/signup', {
+  final data = await apiPost('/auth/social/signup', {
     'provider': pending.provider.code,
     'token': pending.token,
     'role': role,
     'name': name,
     'phoneNumber': phoneNumber,
   });
-  _completeLogin(data);
+  final token = data['token'];
+  if (token is! String || token.isEmpty) {
+    throw SocialAuthException('회원가입 응답에 토큰이 없습니다.');
+  }
+  await completeLogin(token);
 }
