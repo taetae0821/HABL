@@ -70,6 +70,7 @@ function parseBirthDate(value) {
     return undefined;
   }
   const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return undefined; // 13월처럼 아예 해석이 안 되는 날짜
   const isRealDate = date.toISOString().slice(0, 10) === value; // 2월 30일 같은 날짜 거르기
   if (!isRealDate || date > new Date() || date.getUTCFullYear() < 1900) {
     return undefined;
@@ -306,10 +307,11 @@ app.post("/auth/social/login", async (request, response) => {
 
 // 처음 온 소셜 사용자를 회원/회장으로 가입시킵니다
 app.post("/auth/social/signup", async (request, response) => {
-  const { role, name, phoneNumber } = request.body ?? {};
+  const { role, name, phoneNumber, birthDate } = request.body ?? {};
   const normalizedPhone =
     typeof phoneNumber === "string" ? phoneNumber.trim() : "";
   const isValidPhone = /^[0-9+()\-\s]{7,20}$/.test(normalizedPhone);
+  const normalizedBirthDate = parseBirthDate(birthDate);
 
   if (
     !["MEMBER", "LEADER"].includes(role) ||
@@ -321,6 +323,11 @@ app.post("/auth/social/signup", async (request, response) => {
       .status(400)
       .json({ message: "이름과 전화번호를 입력해주세요." });
   }
+  if (normalizedBirthDate === undefined) {
+    return response
+      .status(400)
+      .json({ message: "생년월일을 확인해주세요." });
+  }
 
   try {
     const verified = await verifySocialRequest(request, response);
@@ -328,12 +335,13 @@ app.post("/auth/social/signup", async (request, response) => {
     const { provider, profile } = verified;
 
     const [result] = await pool.query(
-      `INSERT INTO users (name, email, phone_number, role, provider, provider_id)
-        VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (name, email, phone_number, birth_date, role, provider, provider_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         name.trim(),
         profile.email?.toLowerCase() ?? null,
         normalizedPhone,
+        normalizedBirthDate,
         role,
         provider,
         profile.providerId,
