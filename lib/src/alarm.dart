@@ -1,21 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:habl/src/api_client.dart';
 import 'package:habl/src/auth.dart';
-import 'package:habl/src/club.dart';
-import 'package:habl/src/club_manage.dart';
-import 'package:habl/src/find_club.dart';
 import 'package:habl/src/theme.dart';
 
-// 가입한 동호회의 모임 일정 알림 한 건
-class MeetingAlarm {
-  const MeetingAlarm({
-    required this.club,
-    required this.date,
-    required this.time,
+class UserNotification {
+  const UserNotification({
+    required this.id,
+    required this.userId,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.isRead,
+    required this.createdAt,
   });
 
-  final ClubSummary club;
-  final DateTime date; // 모임 날짜
-  final String time; // 모임 시간 (예: 오후 2시)
+  final int id;
+  final int userId;
+  final String type;
+  final String title;
+  final String message;
+  final bool isRead;
+  final DateTime createdAt;
+
+  factory UserNotification.fromJson(Map<String, dynamic> json) {
+    int parseId(Object? value, String field) {
+      if (value is int) return value;
+      if (value is num && value == value.toInt()) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return parsed;
+      }
+      throw FormatException('알림의 $field 값이 올바르지 않습니다.');
+    }
+
+    final type = json['type'];
+    final title = json['title'];
+    final message = json['message'];
+    final rawIsRead = json['is_read'];
+    final rawCreatedAt = json['created_at'];
+    if (type is! String ||
+        title is! String ||
+        message is! String ||
+        rawCreatedAt is! String) {
+      throw const FormatException('알림 정보 응답 형식이 올바르지 않습니다.');
+    }
+
+    final isRead = switch (rawIsRead) {
+      bool value => value,
+      num value when value == 0 => false,
+      num value when value == 1 => true,
+      _ => throw const FormatException('알림 읽음 상태 응답 형식이 올바르지 않습니다.'),
+    };
+    final createdAt = DateTime.tryParse(rawCreatedAt);
+    if (createdAt == null) {
+      throw const FormatException('알림 날짜 응답 형식이 올바르지 않습니다.');
+    }
+
+    return UserNotification(
+      id: parseId(json['id'], 'ID'),
+      userId: parseId(json['user_id'], '사용자 ID'),
+      type: type,
+      title: title,
+      message: message,
+      isRead: isRead,
+      createdAt: createdAt.toLocal(),
+    );
+  }
 }
 
 class Alarm extends StatefulWidget {
@@ -26,234 +76,151 @@ class Alarm extends StatefulWidget {
 }
 
 class _AlarmState extends State<Alarm> {
-  List<MeetingAlarm> _alarms = [];
+  List<UserNotification> _notifications = [];
   bool _isLoading = true;
+  String? _loadError;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadAlarms();
+    _loadNotifications();
   }
 
-  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+  @override
+  void dispose() {
+    _loadGeneration++;
+    super.dispose();
+  }
 
-  // 오늘로부터 며칠 뒤인지 (오늘 = 0)
-  static int _daysFromToday(DateTime date) =>
-      _dateOnly(date).difference(_dateOnly(DateTime.now())).inDays;
-
-  // TODO: DB 연결 후 GET /users/me/meetings 처럼 가입한 동호회의
-  // 다가오는 모임 일정을 서버에서 받아오도록 교체 (날짜순 정렬)
-  // (아래는 임시 샘플: 로그인한 계정이 가입한 동호회로 오늘부터 이틀 간격의 일정을 만듦)
-  Future<void> _loadAlarms() async {
-    final today = _dateOnly(DateTime.now());
-    final clubs = [
-      for (final id in currentUser.value?.joinedClubIds ?? const <int>[])
-        ?sampleClubById(id),
-    ];
-
+  Future<void> _loadNotifications() async {
+    final generation = ++_loadGeneration;
+    final token = authToken;
     setState(() {
-      _alarms = [
-        for (var i = 0; i < clubs.length; i++)
-          MeetingAlarm(
-            club: clubs[i],
-            date: today.add(Duration(days: i * 2)),
-            // '매주 토요일 오후 2시' → '오후 2시'
-            time: clubs[i].regularMeetingInfo?.split('요일 ').last ?? '',
-          ),
-      ];
-      _isLoading = false;
+      _isLoading = true;
+      _loadError = null;
     });
 
-    // 알람 화면을 열면 받은 공지는 모두 읽음 처리 (탭 뱃지 사라짐)
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => markNoticesRead(currentUser.value),
-    );
-  }
+    try {
+      final response = await apiGet('/users/me/notifications', token: token);
+      final rawNotifications = response['notifications'];
+      if (rawNotifications is! List) {
+        throw const FormatException('알림 목록 응답 형식이 올바르지 않습니다.');
+      }
 
-  void _openClub(ClubSummary club) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => Club(
-          clubName: club.name,
-          clubId: club.id,
-          imageUrl: club.imageUrl,
-          location: club.locationName,
-          meetingTime: club.regularMeetingInfo,
-        ),
-      ),
-    );
+      final notifications = rawNotifications.map((rawNotification) {
+        if (rawNotification is! Map<String, dynamic>) {
+          throw const FormatException('알림 정보 응답 형식이 올바르지 않습니다.');
+        }
+        return UserNotification.fromJson(rawNotification);
+      }).toList();
+
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _notifications = notifications);
+    } on ApiException catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _loadError = error.message);
+    } on FormatException catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _loadError = error.message);
+    } finally {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_isLoading && _notifications.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final todayAlarms =
-        _alarms.where((a) => _daysFromToday(a.date) == 0).toList();
-    final upcomingAlarms =
-        _alarms.where((a) => _daysFromToday(a.date) > 0).toList();
+    if (_loadError != null && _notifications.isEmpty) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_outlined, size: 48),
+                  const SizedBox(height: 12),
+                  Text(_loadError!, textAlign: TextAlign.center),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _loadNotifications,
+                    child: const Text('다시 시도'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: RefreshIndicator(
           color: AppColors.primary,
-          onRefresh: _loadAlarms,
+          onRefresh: _loadNotifications,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
             children: [
-              _buildGreeting(),
-              const SizedBox(height: 20),
-              if (todayAlarms.isEmpty)
-                _buildNoMeetingToday()
+              const Text(
+                '알림',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              if (_loadError != null)
+                _InlineLoadError(
+                  message: _loadError!,
+                  onRetry: _loadNotifications,
+                )
+              else if (_notifications.isEmpty)
+                const _EmptyNotifications()
               else
-                for (final alarm in todayAlarms)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _TodayAlarmCard(
-                      alarm: alarm,
-                      onTap: () => _openClub(alarm.club),
-                    ),
-                  ),
-              _buildNotices(),
-              if (upcomingAlarms.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                _buildSectionTitle('다가오는 모임', upcomingAlarms.length),
-                const SizedBox(height: 12),
-                for (final alarm in upcomingAlarms)
+                for (final notification in _notifications)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _UpcomingAlarmTile(
-                      alarm: alarm,
-                      daysLeft: _daysFromToday(alarm.date),
-                      onTap: () => _openClub(alarm.club),
-                    ),
+                    child: _NotificationTile(notification: notification),
                   ),
-              ],
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  // 상단 오늘 날짜 + 제목
-  Widget _buildGreeting() {
-    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
-    final now = DateTime.now();
+class _EmptyNotifications extends StatelessWidget {
+  const _EmptyNotifications();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${now.month}월 ${now.day}일 ${weekdays[now.weekday - 1]}요일',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          '모임 알림 🔔',
-          style: TextStyle(
-            fontSize: 24,
-            height: 1.3,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // 내가 가입한 동호회 회장이 올린 공지 알람
-  Widget _buildNotices() {
-    return ValueListenableBuilder<List<ClubNotice>>(
-      valueListenable: clubNotices,
-      builder: (context, _, _) {
-        final notices = noticesFor(currentUser.value);
-        if (notices.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 18),
-            _buildSectionTitle('새 공지', notices.length),
-            const SizedBox(height: 12),
-            for (final notice in notices)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _NoticeAlarmTile(
-                  notice: notice,
-                  onTap: () {
-                    final club = sampleClubById(notice.clubId);
-                    if (club != null) _openClub(club);
-                  },
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSectionTitle(String title, int count) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '$count',
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: AppColors.primary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNoMeetingToday() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppColors.softShadow(),
-      ),
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 72),
       child: Column(
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: AppColors.primaryLight,
-              shape: BoxShape.circle,
-            ),
-            child: const Text('😴', style: TextStyle(fontSize: 32)),
+          Icon(
+            Icons.notifications_none_rounded,
+            size: 56,
+            color: AppColors.textHint,
           ),
-          const SizedBox(height: 14),
-          const Text(
-            '오늘은 예정된 모임이 없어요',
+          SizedBox(height: 14),
+          Text(
+            '새로운 알림이 없습니다.',
             style: TextStyle(
               fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -262,314 +229,100 @@ class _AlarmState extends State<Alarm> {
   }
 }
 
-// 오늘 모임 알림: "오늘은 OO에서 OO 모임이 진행됩니다!"
-class _TodayAlarmCard extends StatelessWidget {
-  const _TodayAlarmCard({required this.alarm, required this.onTap});
+class _InlineLoadError extends StatelessWidget {
+  const _InlineLoadError({required this.message, required this.onRetry});
 
-  final MeetingAlarm alarm;
-  final VoidCallback onTap;
+  final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final club = alarm.club;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: AppColors.heroGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppColors.softShadow(AppColors.primary),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    '📣 오늘의 모임',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      const TextSpan(text: '오늘은 '),
-                      TextSpan(
-                        text: club.locationName,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                      const TextSpan(text: '에서\n'),
-                      TextSpan(
-                        text: club.name,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                      const TextSpan(text: ' 모임이 진행됩니다!'),
-                    ],
-                  ),
-                  style: const TextStyle(
-                    fontSize: 19,
-                    height: 1.45,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.4,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      alarm.time,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const Spacer(),
-                    const Text(
-                      '모임 보기',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.white,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48),
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off_outlined, size: 48),
+          const SizedBox(height: 12),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onRetry, child: const Text('다시 시도')),
+        ],
       ),
     );
   }
 }
 
-// 회장이 올린 공지 알림 한 건
-class _NoticeAlarmTile extends StatelessWidget {
-  const _NoticeAlarmTile({required this.notice, required this.onTap});
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({required this.notification});
 
-  final ClubNotice notice;
-  final VoidCallback onTap;
+  final UserNotification notification;
 
-  // 방금 전 / N분 전 / N시간 전 / M월 D일
-  String get _timeAgo {
-    final diff = DateTime.now().difference(notice.createdAt);
-    if (diff.inMinutes < 1) return '방금 전';
-    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
-    if (diff.inDays < 1) return '${diff.inHours}시간 전';
-    return '${notice.createdAt.month}월 ${notice.createdAt.day}일';
+  String get _createdAtLabel {
+    final now = DateTime.now();
+    final difference = now.difference(notification.createdAt);
+    if (difference.isNegative || difference.inMinutes < 1) return '방금 전';
+    if (difference.inHours < 1) return '${difference.inMinutes}분 전';
+    if (difference.inDays < 1) return '${difference.inHours}시간 전';
+    return '${notification.createdAt.month}월 ${notification.createdAt.day}일';
   }
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        color: notification.isRead ? AppColors.surface : AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(18),
         boxShadow: AppColors.softShadow(),
       ),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.leader.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Text('📢', style: TextStyle(fontSize: 24)),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${notice.clubName} 공지',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.leaderDark,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            _timeAgo,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textHint,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        notice.message,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          height: 1.45,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '👑 ${notice.authorName}',
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.notifications_active_outlined,
+              color: AppColors.primary,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// 다가오는 모임 알림 한 줄
-class _UpcomingAlarmTile extends StatelessWidget {
-  const _UpcomingAlarmTile({
-    required this.alarm,
-    required this.daysLeft,
-    required this.onTap,
-  });
-
-  final MeetingAlarm alarm;
-  final int daysLeft;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final club = alarm.club;
-    final category = categoryOf(club.category);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: AppColors.softShadow(),
-      ),
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: category.light,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    category.emoji,
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        club.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: AppColors.textPrimary,
+                      Expanded(
+                        child: Text(
+                          notification.title,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(width: 8),
                       Text(
-                        '${alarm.date.month}월 ${alarm.date.day}일 ${alarm.time} · ${club.locationName}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        _createdAtLabel,
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                          color: AppColors.textHint,
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondaryLight,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    daysLeft == 1 ? '내일' : 'D-$daysLeft',
+                  const SizedBox(height: 6),
+                  Text(
+                    notification.message,
                     style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.secondary,
+                      fontSize: 14,
+                      height: 1.4,
+                      color: AppColors.textSecondary,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

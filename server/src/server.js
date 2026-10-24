@@ -211,6 +211,22 @@ app.get("/users/me", requireAuth, async (request, response) => {
   }
 });
 
+app.get("/users/me/notifications", requireAuth, async (request, response, next) => {
+  try {
+    const [notifications] = await pool.query(
+      `SELECT id, user_id, type, title, content AS message,
+              (read_at IS NOT NULL) AS is_read, created_at
+       FROM notifications
+       WHERE user_id = ?
+       ORDER BY created_at DESC, id DESC`,
+      [request.user.id],
+    );
+    response.json({ notifications });
+  } catch (error) {
+    next(error);
+  }
+});
+
 async function findUserById(id) {
   const [rows] = await pool.query(
     `SELECT id, name, email, role, provider, created_at
