@@ -63,15 +63,38 @@ app.get("/health", async (_request, response) => {
   }
 });
 
+// 생년월일: 없으면 null, 있으면 실제로 있는 지난 날짜('YYYY-MM-DD')만 허용. 틀리면 undefined
+function parseBirthDate(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return undefined; // 13월처럼 아예 해석이 안 되는 날짜
+  const isRealDate = date.toISOString().slice(0, 10) === value; // 2월 30일 같은 날짜 거르기
+  if (!isRealDate || date > new Date() || date.getUTCFullYear() < 1900) {
+    return undefined;
+  }
+  return value;
+}
+
+// 이메일 회원가입 (회원/회장). 가입하면 바로 로그인되도록 토큰을 함께 돌려줍니다
 app.post("/auth/signup", async (request, response) => {
-  const { name, email, phoneNumber, password } = request.body ?? {};
+  const { role, name, email, phoneNumber, password, birthDate } =
+    request.body ?? {};
   const normalizedEmail =
     typeof email === "string" ? email.trim().toLowerCase() : "";
   const normalizedPhone =
     typeof phoneNumber === "string" ? phoneNumber.trim() : "";
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
   const isValidPhone = /^[0-9+()\-\s]{7,20}$/.test(normalizedPhone);
+  const normalizedBirthDate = parseBirthDate(birthDate);
 
+  if (!["MEMBER", "LEADER"].includes(role)) {
+    return response
+      .status(400)
+      .json({ message: "회원 유형(회원/회장)을 선택해주세요." });
+  }
   if (
     typeof name !== "string" ||
     name.trim().length === 0 ||
@@ -84,22 +107,29 @@ app.post("/auth/signup", async (request, response) => {
       message: "이름, 이메일, 전화번호, 8자 이상의 비밀번호를 입력해주세요.",
     });
   }
+  if (normalizedBirthDate === undefined) {
+    return response
+      .status(400)
+      .json({ message: "생년월일을 확인해주세요." });
+  }
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
     const [result] = await pool.query(
-      `INSERT INTO users (name, email, password_hash, phone_number)
-        VALUES (?, ?, ?, ?)`,
-      [name.trim(), normalizedEmail, passwordHash, normalizedPhone],
-    );
-    const [rows] = await pool.query(
-      `SELECT id, name, email, created_at
-       FROM users
-       WHERE id = ?`,
-      [result.insertId],
+      `INSERT INTO users (name, email, password_hash, phone_number, birth_date, role, provider)
+        VALUES (?, ?, ?, ?, ?, ?, 'LOCAL')`,
+      [
+        name.trim(),
+        normalizedEmail,
+        passwordHash,
+        normalizedPhone,
+        normalizedBirthDate,
+        role,
+      ],
     );
 
-    return response.status(201).json({ user: rows[0] });
+    const user = await findUserById(result.insertId);
+    return response.status(201).json({ token: issueToken(user), user });
   } catch (error) {
     if (error?.code === "ER_DUP_ENTRY") {
       return response
@@ -293,10 +323,11 @@ app.post("/auth/social/login", async (request, response) => {
 
 // 처음 온 소셜 사용자를 회원/회장으로 가입시킵니다
 app.post("/auth/social/signup", async (request, response) => {
-  const { role, name, phoneNumber } = request.body ?? {};
+  const { role, name, phoneNumber, birthDate } = request.body ?? {};
   const normalizedPhone =
     typeof phoneNumber === "string" ? phoneNumber.trim() : "";
   const isValidPhone = /^[0-9+()\-\s]{7,20}$/.test(normalizedPhone);
+  const normalizedBirthDate = parseBirthDate(birthDate);
 
   if (
     !["MEMBER", "LEADER"].includes(role) ||
@@ -308,6 +339,11 @@ app.post("/auth/social/signup", async (request, response) => {
       .status(400)
       .json({ message: "이름과 전화번호를 입력해주세요." });
   }
+  if (normalizedBirthDate === undefined) {
+    return response
+      .status(400)
+      .json({ message: "생년월일을 확인해주세요." });
+  }
 
   try {
     const verified = await verifySocialRequest(request, response);
@@ -315,12 +351,13 @@ app.post("/auth/social/signup", async (request, response) => {
     const { provider, profile } = verified;
 
     const [result] = await pool.query(
-      `INSERT INTO users (name, email, phone_number, role, provider, provider_id)
-        VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (name, email, phone_number, birth_date, role, provider, provider_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         name.trim(),
         profile.email?.toLowerCase() ?? null,
         normalizedPhone,
+        normalizedBirthDate,
         role,
         provider,
         profile.providerId,
