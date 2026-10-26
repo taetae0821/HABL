@@ -9,6 +9,7 @@ import {
   isProviderConfigured,
   verifySocialToken,
 } from "./social_auth.js";
+import { withTransaction } from "./db.js";
 import { errorHandler } from "./http_error.js";
 import { requireAuth } from "./middleware/auth.js";
 import { clubsRouter } from "./routes/clubs.js";
@@ -78,7 +79,41 @@ function parseBirthDate(value) {
   return value;
 }
 
+const OPERATION_EXPERIENCES = [
+  "NONE",
+  "UNDER_ONE_YEAR",
+  "ONE_TO_THREE_YEARS",
+  "OVER_THREE_YEARS",
+];
+
+// 회장 프로필: 한 줄 소개(40자)·활동 지역(255자)·운영 경험 모두 필수. 틀리면 null
+function parseLeaderProfile({ leaderIntro, activityRegion, operationExperience }) {
+  const intro = typeof leaderIntro === "string" ? leaderIntro.trim() : "";
+  const region =
+    typeof activityRegion === "string" ? activityRegion.trim() : "";
+  if (
+    intro.length === 0 ||
+    intro.length > 40 ||
+    region.length === 0 ||
+    region.length > 255 ||
+    !OPERATION_EXPERIENCES.includes(operationExperience)
+  ) {
+    return null;
+  }
+  return { intro, region, experience: operationExperience };
+}
+
+// 가입한 회장의 프로필을 저장합니다. 동호회는 아직 없으므로 club_id 는 NULL
+async function insertLeaderProfile(db, userId, leaderProfile) {
+  await db.query(
+    `INSERT INTO club_leaders (club_id, user_id, leader_intro, activity_region, operation_experience)
+      VALUES (NULL, ?, ?, ?, ?)`,
+    [userId, leaderProfile.intro, leaderProfile.region, leaderProfile.experience],
+  );
+}
+
 // 이메일 회원가입 (회원/회장). 가입하면 바로 로그인되도록 토큰을 함께 돌려줍니다
+// 회장이면 회장 프로필도 함께 저장합니다
 app.post("/auth/signup", async (request, response) => {
   const { role, name, email, phoneNumber, password, birthDate } =
     request.body ?? {};
@@ -112,23 +147,37 @@ app.post("/auth/signup", async (request, response) => {
       .status(400)
       .json({ message: "생년월일을 확인해주세요." });
   }
+  const leaderProfile =
+    role === "LEADER" ? parseLeaderProfile(request.body) : null;
+  if (role === "LEADER" && !leaderProfile) {
+    return response.status(400).json({
+      message: "한 줄 소개(40자 이하), 활동 지역, 운영 경험을 입력해주세요.",
+    });
+  }
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
-    const [result] = await pool.query(
-      `INSERT INTO users (name, email, password_hash, phone_number, birth_date, role, provider)
-        VALUES (?, ?, ?, ?, ?, ?, 'LOCAL')`,
-      [
-        name.trim(),
-        normalizedEmail,
-        passwordHash,
-        normalizedPhone,
-        normalizedBirthDate,
-        role,
-      ],
-    );
+    // 회원 저장과 회장 프로필 저장을 묶어서, 하나라도 실패하면 둘 다 취소
+    const userId = await withTransaction(async (db) => {
+      const [result] = await db.query(
+        `INSERT INTO users (name, email, password_hash, phone_number, birth_date, role, provider)
+          VALUES (?, ?, ?, ?, ?, ?, 'LOCAL')`,
+        [
+          name.trim(),
+          normalizedEmail,
+          passwordHash,
+          normalizedPhone,
+          normalizedBirthDate,
+          role,
+        ],
+      );
+      if (leaderProfile) {
+        await insertLeaderProfile(db, result.insertId, leaderProfile);
+      }
+      return result.insertId;
+    });
 
-    const user = await findUserById(result.insertId);
+    const user = await findUserById(userId);
     return response.status(201).json({ token: issueToken(user), user });
   } catch (error) {
     if (error?.code === "ER_DUP_ENTRY") {
@@ -344,27 +393,41 @@ app.post("/auth/social/signup", async (request, response) => {
       .status(400)
       .json({ message: "생년월일을 확인해주세요." });
   }
+  const leaderProfile =
+    role === "LEADER" ? parseLeaderProfile(request.body) : null;
+  if (role === "LEADER" && !leaderProfile) {
+    return response.status(400).json({
+      message: "한 줄 소개(40자 이하), 활동 지역, 운영 경험을 입력해주세요.",
+    });
+  }
 
   try {
     const verified = await verifySocialRequest(request, response);
     if (!verified) return;
     const { provider, profile } = verified;
 
-    const [result] = await pool.query(
-      `INSERT INTO users (name, email, phone_number, birth_date, role, provider, provider_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        name.trim(),
-        profile.email?.toLowerCase() ?? null,
-        normalizedPhone,
-        normalizedBirthDate,
-        role,
-        provider,
-        profile.providerId,
-      ],
-    );
+    // 회원 저장과 회장 프로필 저장을 묶어서, 하나라도 실패하면 둘 다 취소
+    const userId = await withTransaction(async (db) => {
+      const [result] = await db.query(
+        `INSERT INTO users (name, email, phone_number, birth_date, role, provider, provider_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          name.trim(),
+          profile.email?.toLowerCase() ?? null,
+          normalizedPhone,
+          normalizedBirthDate,
+          role,
+          provider,
+          profile.providerId,
+        ],
+      );
+      if (leaderProfile) {
+        await insertLeaderProfile(db, result.insertId, leaderProfile);
+      }
+      return result.insertId;
+    });
 
-    const user = await findUserById(result.insertId);
+    const user = await findUserById(userId);
     return response.status(201).json({ token: issueToken(user), user });
   } catch (error) {
     if (error?.code === "ER_DUP_ENTRY") {
