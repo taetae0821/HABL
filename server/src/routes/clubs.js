@@ -92,6 +92,18 @@ async function assertLeaderOf(db, clubId, user, options) {
   return club;
 }
 
+// 이 동호회의 승인된 부원(회장 포함)인지 확인. 아니면 403.
+async function assertMemberOf(db, clubId, user) {
+  const club = await findClub(db, clubId);
+  const [rows] = await db.query(
+    `SELECT id FROM club_members
+     WHERE club_id = ? AND user_id = ? AND status = 'APPROVED'`,
+    [clubId, user.id],
+  );
+  if (rows.length === 0) throw new HttpError(403, "동호회 부원만 볼 수 있습니다.");
+  return club;
+}
+
 async function countMembers(db, clubId) {
   const [[row]] = await db.query(
     `SELECT COUNT(*) AS count FROM club_members
@@ -406,7 +418,7 @@ clubsRouter.post("/:clubId/applications/:userId/reject", requireAuth, (request, 
 // 부원 목록 (이 동호회 부원만 볼 수 있음). 회장이 맨 위.
 clubsRouter.get("/:clubId/members", requireAuth, async (request, response) => {
   const clubId = parseId(request.params.clubId);
-  await findClub(pool, clubId);
+  await assertMemberOf(pool, clubId, request.user);
 
   const [members] = await pool.query(
     `SELECT m.user_id, u.name, (cl.user_id IS NOT NULL) AS is_leader,
@@ -418,9 +430,6 @@ clubsRouter.get("/:clubId/members", requireAuth, async (request, response) => {
      ORDER BY is_leader DESC, joined_at`,
     [clubId],
   );
-  if (!members.some((member) => member.user_id === request.user.id)) {
-    throw new HttpError(403, "동호회 부원만 볼 수 있습니다.");
-  }
   response.json({
     members: members.map((member) => ({ ...member, is_leader: Boolean(member.is_leader) })),
   });
@@ -461,6 +470,23 @@ clubsRouter.delete("/:clubId/members/:userId", requireAuth, async (request, resp
 });
 
 // ---------- 공지 ----------
+
+// 공지 목록 (이 동호회 부원만 볼 수 있음). 최신순.
+clubsRouter.get("/:clubId/notices", requireAuth, async (request, response) => {
+  const clubId = parseId(request.params.clubId);
+  await assertMemberOf(pool, clubId, request.user);
+
+  const [notices] = await pool.query(
+    `SELECT n.id, n.club_id, n.content, n.created_at,
+       n.author_id, u.name AS author_name
+     FROM club_notices n
+     JOIN users u ON u.id = n.author_id
+     WHERE n.club_id = ?
+     ORDER BY n.created_at DESC, n.id DESC`,
+    [clubId],
+  );
+  response.json({ notices });
+});
 
 // 공지 작성 (회장만). 회장을 뺀 승인된 부원 전원에게 NOTICE 알림을 보냅니다.
 clubsRouter.post("/:clubId/notices", requireAuth, async (request, response) => {
