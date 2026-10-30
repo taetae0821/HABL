@@ -33,7 +33,13 @@ export async function requireAuth(request, _response, next) {
 }
 
 // 로그인하지 않아도 되는 API 에서, 로그인했다면 request.user 를 채웁니다.
+// 토큰이 만료됐거나 잘못돼도 막지 않고 비로그인으로 취급합니다 (DB 에러 등은 그대로 던짐).
 export async function optionalAuth(request, _response, next) {
-  request.user = await loadUser(request);
+  try {
+    request.user = await loadUser(request);
+  } catch (error) {
+    if (!(error instanceof HttpError)) throw error;
+    request.user = null;
+  }
   next();
 }

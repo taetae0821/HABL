@@ -54,6 +54,36 @@ function text(value, { label, max, required = false }) {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+// DB 컬럼 길이를 넘으면 잘라서 끝에 … 를 붙입니다 (이모지가 깨지지 않게 글자 단위로 셈)
+function clip(value, max) {
+  const chars = Array.from(value);
+  return chars.length > max ? chars.slice(0, max - 1).join("") + "…" : value;
+}
+
+// 'YYYY-MM-DD HH:mm(:ss)' 또는 'T' 구분자. 실제로 있는 날짜·시각이면 'YYYY-MM-DD HH:mm:ss', 아니면 null
+// (JS Date 는 2월 30일·24시를 다음 날로 넘겨 받아주지만 MySQL 은 거부하므로 직접 확인)
+function parseMeetingAt(value) {
+  const match =
+    typeof value === "string" &&
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+  if (!match) return null;
+  const [year, month, day, hour, minute, second] = match
+    .slice(1)
+    .map((part) => Number(part ?? 0)); // 초가 없으면 0
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  const isReal =
+    year >= 1000 && // MySQL DATETIME 범위
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day &&
+    date.getUTCHours() === hour &&
+    date.getUTCMinutes() === minute &&
+    date.getUTCSeconds() === second;
+  if (!isReal) return null;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}:${pad(second)}`;
+}
+
 function optionalNumber(value, { label, min, max }) {
   if (value === undefined || value === null || value === "") return null;
   const number = Number(value);
@@ -113,11 +143,12 @@ async function countMembers(db, clubId) {
   return row.count;
 }
 
+// 알림 제목·내용에 동호회 이름이 들어가 컬럼 길이(100·500자)를 넘을 수 있어 잘라서 저장
 async function notify(db, { userId, clubId, type, title, content }) {
   await db.query(
     `INSERT INTO notifications (user_id, club_id, type, title, content)
      VALUES (?, ?, ?, ?, ?)`,
-    [userId, clubId, type, title, content],
+    [userId, clubId, type, clip(title, 100), clip(content, 500)],
   );
 }
 
@@ -220,7 +251,7 @@ clubsRouter.post("/", requireAuth, async (request, response) => {
   }
 
   const body = request.body ?? {};
-  const name = text(body.name, { label: "동호회 이름", max: 100, required: true });
+  const name = text(body.name, { label: "동호회 이름", max: 50, required: true });
   const description = text(body.description, { label: "소개글", max: 5000, required: true });
   const locationName = text(body.location_name, { label: "위치", max: 255, required: true });
   const locationAddress = text(body.location_address, { label: "주소", max: 500 });
@@ -504,7 +535,7 @@ clubsRouter.post("/:clubId/notices", requireAuth, async (request, response) => {
        SELECT user_id, club_id, 'NOTICE', ?, ?
        FROM club_members
        WHERE club_id = ? AND status = 'APPROVED' AND user_id <> ?`,
-      [`${club.name} 공지`, content, clubId, request.user.id],
+      [clip(`${club.name} 공지`, 100), content, clubId, request.user.id],
     );
     const [[row]] = await db.query(
       "SELECT id, club_id, content, created_at FROM club_notices WHERE id = ?",
@@ -542,12 +573,8 @@ clubsRouter.post("/:clubId/meetings", requireAuth, async (request, response) => 
   const clubId = parseId(request.params.clubId);
   await assertLeaderOf(pool, clubId, request.user);
 
-  const meetingAt = request.body?.meeting_at;
-  if (
-    typeof meetingAt !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(meetingAt) ||
-    Number.isNaN(Date.parse(meetingAt.replace(" ", "T")))
-  ) {
+  const meetingAt = parseMeetingAt(request.body?.meeting_at);
+  if (!meetingAt) {
     throw new HttpError(400, "모임 일시를 YYYY-MM-DD HH:mm 형식으로 보내주세요.");
   }
   const place = text(request.body?.place, { label: "장소", max: 255 });
@@ -555,7 +582,7 @@ clubsRouter.post("/:clubId/meetings", requireAuth, async (request, response) => 
 
   const [result] = await pool.query(
     "INSERT INTO club_meetings (club_id, meeting_at, place, memo) VALUES (?, ?, ?, ?)",
-    [clubId, meetingAt.replace("T", " "), place, memo],
+    [clubId, meetingAt, place, memo],
   );
   const [[meeting]] = await pool.query(
     "SELECT id, meeting_at, place, memo FROM club_meetings WHERE id = ?",
