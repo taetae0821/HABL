@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:habl/src/auth_api.dart';
 import 'src/header.dart';
 import 'src/registration_selection.dart';
 import 'src/form_club.dart';
@@ -63,6 +64,27 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool get _isLoggedIn => isLoggedIn.value;
 
+  @override
+  void initState() {
+    super.initState();
+    _refreshUnreadCount();
+  }
+
+  Future<void> _refreshUnreadCount() async {
+    try {
+      await refreshUnreadNotificationsCount();
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'notification badge',
+          context: ErrorDescription('while loading unread notifications'),
+        ),
+      );
+    }
+  }
+
   static const List<Widget> _pages = [
     FindClub(),
     Center(child: Text('지도')),
@@ -73,9 +95,9 @@ class _HomePageState extends State<HomePage> {
 
   void _onItemTapped(int index) {
     if (index == _profileIndex && !_isLoggedIn) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const Registration()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const Registration()));
       return;
     }
     setState(() {

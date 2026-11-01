@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 // 앱 전체에서 공유하는 로그인 상태
 // TODO: 앱을 껐다 켜도 유지되도록 authToken 을 안전한 저장소에 저장
 final ValueNotifier<bool> isLoggedIn = ValueNotifier(false);
+final ValueNotifier<int> unreadNotificationsCount = ValueNotifier(0);
 
 // 서버가 발급한 로그인 토큰 (API 요청 시 Authorization 헤더에 사용)
 String? authToken;
@@ -18,6 +19,8 @@ class AppUser {
     required this.loginId,
     required this.name,
     required this.role,
+    this.phoneNumber = '',
+    this.birthDate,
     this.profileImageUrl = '',
     this.leadingClubId,
     this.joinedClubIds = const [],
@@ -26,6 +29,8 @@ class AppUser {
   final String loginId;
   final String name;
   final String role; // 'LEADER' 또는 'MEMBER'
+  final String phoneNumber;
+  final String? birthDate;
   final String profileImageUrl;
   final int? leadingClubId; // 회장이면 운영 중인 동호회 id
   final List<int> joinedClubIds; // 가입한 동호회 id (운영 중인 동호회 포함)
@@ -61,6 +66,12 @@ class AppUser {
       loginId: email is String ? email : '',
       name: name,
       role: role,
+      phoneNumber: json['phone_number'] is String
+          ? json['phone_number'] as String
+          : '',
+      birthDate: json['birth_date'] is String
+          ? json['birth_date'] as String
+          : null,
       leadingClubId: rawLeadingClubId is num ? rawLeadingClubId.toInt() : null,
       joinedClubIds: joinedClubIds,
     );
@@ -85,6 +96,8 @@ void leaveClub(int clubId) {
     loginId: user.loginId,
     name: user.name,
     role: user.role,
+    phoneNumber: user.phoneNumber,
+    birthDate: user.birthDate,
     profileImageUrl: user.profileImageUrl,
     leadingClubId: user.leadingClubId,
     joinedClubIds: user.joinedClubIds.where((id) => id != clubId).toList(),
@@ -95,5 +108,6 @@ void logout() {
   authToken = null;
   currentUser.value = null;
   leadingClubId.value = null;
+  unreadNotificationsCount.value = 0;
   isLoggedIn.value = false;
 }

@@ -10,7 +10,7 @@ import {
   verifySocialToken,
 } from "./social_auth.js";
 import { withTransaction } from "./db.js";
-import { errorHandler } from "./http_error.js";
+import { errorHandler, HttpError } from "./http_error.js";
 import { requireAuth } from "./middleware/auth.js";
 import { clubsRouter } from "./routes/clubs.js";
 
@@ -246,7 +246,9 @@ app.post("/auth/login", async (request, response) => {
 app.get("/users/me", requireAuth, async (request, response) => {
   try {
     const [rows] = await pool.query(
-      `SELECT u.id, u.name, u.email, u.role, u.provider, u.created_at,
+      `SELECT u.id, u.name, u.email, u.phone_number,
+              DATE_FORMAT(u.birth_date, '%Y-%m-%d') AS birth_date,
+              u.role, u.provider, u.created_at,
               cl.club_id AS leading_club_id,
               cm.club_id AS joined_club_id
        FROM users u
@@ -275,6 +277,8 @@ app.get("/users/me", requireAuth, async (request, response) => {
         id: first.id,
         name: first.name,
         email: first.email,
+        phone_number: first.phone_number,
+        birth_date: first.birth_date,
         role: first.role,
         provider: first.provider,
         created_at: first.created_at,
@@ -290,17 +294,179 @@ app.get("/users/me", requireAuth, async (request, response) => {
   }
 });
 
+app.get("/users/me/clubs", requireAuth, async (request, response, next) => {
+  try {
+    const [clubs] = await pool.query(
+      `SELECT c.id, c.name, c.category AS category_name, c.description,
+              c.image_url, c.location_name, c.regular_meeting_info,
+              (cl.user_id IS NOT NULL) AS is_leader
+       FROM club_members cm
+       JOIN clubs c ON c.id = cm.club_id
+       LEFT JOIN club_leaders cl
+         ON cl.club_id = c.id AND cl.user_id = cm.user_id
+       WHERE cm.user_id = ? AND cm.status = 'APPROVED'
+       ORDER BY cm.applied_at DESC, c.id DESC`,
+      [request.user.id],
+    );
+    response.json({ clubs });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/users/me/meetings", requireAuth, async (request, response, next) => {
+  try {
+    const [meetings] = await pool.query(
+      `SELECT m.id, m.club_id,
+              DATE_FORMAT(m.meeting_at, '%Y-%m-%d %H:%i:%s') AS meeting_at,
+              m.place, m.memo,
+              c.name AS club_name, c.category AS category_name,
+              c.location_name, c.image_url
+       FROM club_members cm
+       JOIN club_meetings m ON m.club_id = cm.club_id
+       JOIN clubs c ON c.id = m.club_id
+       WHERE cm.user_id = ? AND cm.status = 'APPROVED'
+         AND m.meeting_at >= CURRENT_TIMESTAMP
+       ORDER BY m.meeting_at ASC, m.id ASC`,
+      [request.user.id],
+    );
+    response.json({ meetings });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/users/me/notifications", requireAuth, async (request, response, next) => {
   try {
     const [notifications] = await pool.query(
       `SELECT id, user_id, type, title, content AS message,
-              (read_at IS NOT NULL) AS is_read, created_at
+              (read_at IS NOT NULL) AS is_read,
+              DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at
        FROM notifications
        WHERE user_id = ?
        ORDER BY created_at DESC, id DESC`,
       [request.user.id],
     );
     response.json({ notifications });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch(
+  "/users/me/notifications/:id/read",
+  requireAuth,
+  async (request, response, next) => {
+    const notificationId = Number(request.params.id);
+    if (!Number.isSafeInteger(notificationId) || notificationId <= 0) {
+      return response.status(400).json({ message: "알림 ID를 확인해주세요." });
+    }
+
+    try {
+      const [rows] = await pool.query(
+        "SELECT id FROM notifications WHERE id = ? AND user_id = ?",
+        [notificationId, request.user.id],
+      );
+      if (rows.length === 0) {
+        return response.status(404).json({ message: "알림을 찾을 수 없습니다." });
+      }
+
+      await pool.query(
+        `UPDATE notifications
+         SET read_at = COALESCE(read_at, CURRENT_TIMESTAMP)
+         WHERE id = ? AND user_id = ?`,
+        [notificationId, request.user.id],
+      );
+      response.json({ notification: { id: notificationId, is_read: true } });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+app.patch("/users/me", requireAuth, async (request, response, next) => {
+  const body = request.body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return response.status(400).json({ message: "수정할 정보를 확인해주세요." });
+  }
+
+  const updates = [];
+  const values = [];
+  if (Object.hasOwn(body, "name")) {
+    if (typeof body.name !== "string" || body.name.trim().length === 0 || body.name.trim().length > 50) {
+      return response.status(400).json({ message: "이름은 1~50자로 입력해주세요." });
+    }
+    updates.push("name = ?");
+    values.push(body.name.trim());
+  }
+  if (Object.hasOwn(body, "phoneNumber")) {
+    const phoneNumber =
+      typeof body.phoneNumber === "string" ? body.phoneNumber.trim() : "";
+    if (!/^[0-9+()\-\s]{7,20}$/.test(phoneNumber)) {
+      return response.status(400).json({ message: "전화번호를 확인해주세요." });
+    }
+    updates.push("phone_number = ?");
+    values.push(phoneNumber);
+  }
+  if (Object.hasOwn(body, "birthDate")) {
+    const birthDate = parseBirthDate(body.birthDate);
+    if (birthDate === undefined) {
+      return response.status(400).json({ message: "생년월일을 확인해주세요." });
+    }
+    updates.push("birth_date = ?");
+    values.push(birthDate);
+  }
+  if (updates.length === 0) {
+    return response.status(400).json({ message: "수정할 정보가 없습니다." });
+  }
+
+  try {
+    values.push(request.user.id);
+    await pool.query(
+      `UPDATE users SET ${updates.join(", ")} WHERE id = ?`,
+      values,
+    );
+    const [rows] = await pool.query(
+      `SELECT id, name, email, phone_number,
+              DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date,
+              role, provider, created_at
+       FROM users WHERE id = ?`,
+      [request.user.id],
+    );
+    if (rows.length === 0) {
+      return response.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    }
+    response.json({ user: rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/users/me", requireAuth, async (request, response, next) => {
+  try {
+    await withTransaction(async (db) => {
+      await db.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [
+        request.user.id,
+      ]);
+      const [leaderProfiles] = await db.query(
+        "SELECT id FROM club_leaders WHERE user_id = ? FOR UPDATE",
+        [request.user.id],
+      );
+      if (leaderProfiles.length > 0) {
+        throw new HttpError(
+          409,
+          "회장 프로필이 등록된 계정은 탈퇴할 수 없습니다. 운영 권한과 회장 프로필을 먼저 정리해주세요.",
+        );
+      }
+
+      const [result] = await db.query("DELETE FROM users WHERE id = ?", [
+        request.user.id,
+      ]);
+      if (result.affectedRows === 0) {
+        throw new HttpError(404, "사용자를 찾을 수 없습니다.");
+      }
+    });
+    response.json({ message: "회원 탈퇴가 완료되었습니다." });
   } catch (error) {
     next(error);
   }

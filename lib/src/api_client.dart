@@ -44,6 +44,27 @@ Future<Map<String, dynamic>> apiPost(
   );
 }
 
+Future<Map<String, dynamic>> apiPatch(
+  String path,
+  Map<String, dynamic> body, {
+  String? token,
+}) {
+  return _send(
+    path,
+    token: token,
+    send: (uri, headers) =>
+        http.patch(uri, headers: headers, body: jsonEncode(body)),
+  );
+}
+
+Future<Map<String, dynamic>> apiDelete(String path, {String? token}) {
+  return _send(
+    path,
+    token: token,
+    send: (uri, headers) => http.delete(uri, headers: headers),
+  );
+}
+
 Future<Map<String, dynamic>> _send(
   String path, {
   Map<String, String>? queryParameters,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:habl/src/api_client.dart';
 import 'package:habl/src/auth.dart';
+import 'package:habl/src/auth_api.dart';
 import 'package:habl/src/club.dart';
 import 'package:habl/src/club_manage.dart';
 import 'package:habl/src/find_club.dart';
@@ -26,6 +28,7 @@ class _ProfileState extends State<Profile> {
   String _profileImageUrl = ''; // 사용자가 설정한 프로필 이미지 URL
   List<JoinedClub> _joinedClubs = []; // 가입한 동호회
   bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -33,21 +36,166 @@ class _ProfileState extends State<Profile> {
     _loadProfile();
   }
 
-  // TODO: DB 연결 후 로그인한 사용자(authToken)로 조회한 실제 데이터로 교체
-  // (예: GET /users/me 응답의 이름·프로필 이미지, GET /users/me/clubs 응답)
   Future<void> _loadProfile() async {
     final user = currentUser.value;
-
+    final token = authToken;
     setState(() {
+      _isLoading = true;
+      _loadError = null;
       _userName = user?.name ?? '';
       _profileImageUrl = user?.profileImageUrl ?? '';
-      _joinedClubs = [
-        for (final id in user?.joinedClubIds ?? const <int>[])
-          if (sampleClubById(id) case final club?)
-            JoinedClub(club: club, isLeader: id == user?.leadingClubId),
-      ];
-      _isLoading = false;
     });
+
+    try {
+      final response = await apiGet('/users/me/clubs', token: token);
+      final rawClubs = response['clubs'];
+      if (rawClubs is! List) {
+        throw const FormatException('가입한 동호회 목록 응답 형식이 올바르지 않습니다.');
+      }
+      final joinedClubs = rawClubs.map((rawClub) {
+        if (rawClub is! Map<String, dynamic>) {
+          throw const FormatException('동호회 정보 응답 형식이 올바르지 않습니다.');
+        }
+        final isLeader = rawClub['is_leader'];
+        return JoinedClub(
+          club: ClubSummary.fromJson(rawClub),
+          isLeader: isLeader == true || isLeader == 1,
+        );
+      }).toList();
+      if (!mounted) return;
+      setState(() => _joinedClubs = joinedClubs);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _loadError = error.message);
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      setState(() => _loadError = error.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _editProfile() async {
+    final user = currentUser.value;
+    final token = authToken;
+    if (user == null || token == null) return;
+
+    final nameController = TextEditingController(text: user.name);
+    final phoneController = TextEditingController(text: user.phoneNumber);
+    final birthDateController = TextEditingController(
+      text: user.birthDate ?? '',
+    );
+    try {
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('내 정보 수정'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  maxLength: 50,
+                  decoration: const InputDecoration(labelText: '이름'),
+                ),
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: '전화번호'),
+                ),
+                TextField(
+                  controller: birthDateController,
+                  keyboardType: TextInputType.datetime,
+                  decoration: const InputDecoration(
+                    labelText: '생년월일',
+                    hintText: 'YYYY-MM-DD (비우면 삭제)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('저장'),
+            ),
+          ],
+        ),
+      );
+      if (shouldSave != true) return;
+
+      await apiPatch('/users/me', {
+        'name': nameController.text,
+        'phoneNumber': phoneController.text,
+        'birthDate': birthDateController.text,
+      }, token: token);
+      await completeLogin(token);
+      await _loadProfile();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('내 정보가 수정되었습니다.')));
+      }
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } on FormatException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      nameController.dispose();
+      phoneController.dispose();
+      birthDateController.dispose();
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('회원 탈퇴'),
+        content: const Text(
+          '계정을 삭제하면 되돌릴 수 없습니다. 정말 탈퇴하시겠어요?\n'
+          '회장 프로필이 있는 계정은 먼저 운영 권한을 정리해야 탈퇴할 수 있습니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('탈퇴'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    final token = authToken;
+    if (token == null) return;
+    try {
+      await apiDelete('/users/me', token: token);
+      if (mounted) logout();
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 
   void _openManage(ClubSummary club) {
@@ -116,10 +264,25 @@ class _ProfileState extends State<Profile> {
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 8,
                   right: 8,
-                  child: IconButton(
-                    tooltip: '로그아웃',
-                    onPressed: _confirmLogout,
-                    icon: const Icon(Icons.logout_rounded, color: Colors.white),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: '내 정보 수정',
+                        onPressed: _editProfile,
+                        icon: const Icon(
+                          Icons.edit_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '로그아웃',
+                        onPressed: _confirmLogout,
+                        icon: const Icon(
+                          Icons.logout_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -236,6 +399,10 @@ class _ProfileState extends State<Profile> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_loadError != null) ...[
+          Text(_loadError!, style: const TextStyle(color: Colors.red)),
+          TextButton(onPressed: _loadProfile, child: const Text('다시 시도')),
+        ],
         // 회장이면 운영 중인 동호회의 부원 관리로 바로 이동
         for (final joined in _joinedClubs.where((c) => c.isLeader)) ...[
           SizedBox(
@@ -243,9 +410,7 @@ class _ProfileState extends State<Profile> {
             height: 56,
             child: FilledButton.icon(
               onPressed: () => _openManage(joined.club),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.leader,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.leader),
               icon: const Icon(Icons.manage_accounts_rounded),
               label: Text('${joined.club.name} 부원 관리'),
             ),
@@ -285,6 +450,15 @@ class _ProfileState extends State<Profile> {
                 onTap: () => _openClub(joined.club),
               ),
             ),
+        const SizedBox(height: 12),
+        Center(
+          child: TextButton.icon(
+            onPressed: _confirmDeleteAccount,
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            icon: const Icon(Icons.person_remove_outlined),
+            label: const Text('회원 탈퇴'),
+          ),
+        ),
       ],
     );
   }

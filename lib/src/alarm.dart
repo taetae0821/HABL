@@ -22,6 +22,16 @@ class UserNotification {
   final bool isRead;
   final DateTime createdAt;
 
+  UserNotification markRead() => UserNotification(
+    id: id,
+    userId: userId,
+    type: type,
+    title: title,
+    message: message,
+    isRead: true,
+    createdAt: createdAt,
+  );
+
   factory UserNotification.fromJson(Map<String, dynamic> json) {
     int parseId(Object? value, String field) {
       if (value is int) return value;
@@ -68,6 +78,70 @@ class UserNotification {
   }
 }
 
+class UserMeeting {
+  const UserMeeting({
+    required this.id,
+    required this.clubId,
+    required this.clubName,
+    required this.category,
+    required this.locationName,
+    required this.meetingAt,
+    this.place,
+    this.memo,
+  });
+
+  final int id;
+  final int clubId;
+  final String clubName;
+  final String category;
+  final String locationName;
+  final DateTime meetingAt;
+  final String? place;
+  final String? memo;
+
+  factory UserMeeting.fromJson(Map<String, dynamic> json) {
+    int parseId(Object? value, String field) {
+      if (value is int) return value;
+      if (value is num && value == value.toInt()) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return parsed;
+      }
+      throw FormatException('모임의 $field 값이 올바르지 않습니다.');
+    }
+
+    final clubName = json['club_name'];
+    final category = json['category_name'];
+    final locationName = json['location_name'];
+    final rawMeetingAt = json['meeting_at'];
+    final place = json['place'];
+    final memo = json['memo'];
+    if (clubName is! String ||
+        category is! String ||
+        locationName is! String ||
+        rawMeetingAt is! String ||
+        (place != null && place is! String) ||
+        (memo != null && memo is! String)) {
+      throw const FormatException('모임 정보 응답 형식이 올바르지 않습니다.');
+    }
+    final meetingAt = DateTime.tryParse(rawMeetingAt);
+    if (meetingAt == null) {
+      throw const FormatException('모임 날짜 응답 형식이 올바르지 않습니다.');
+    }
+
+    return UserMeeting(
+      id: parseId(json['id'], 'ID'),
+      clubId: parseId(json['club_id'], '동호회 ID'),
+      clubName: clubName,
+      category: category,
+      locationName: locationName,
+      meetingAt: meetingAt.toLocal(),
+      place: place as String?,
+      memo: memo as String?,
+    );
+  }
+}
+
 class Alarm extends StatefulWidget {
   const Alarm({super.key});
 
@@ -77,28 +151,37 @@ class Alarm extends StatefulWidget {
 
 class _AlarmState extends State<Alarm> {
   List<UserNotification> _notifications = [];
-  bool _isLoading = true;
-  String? _loadError;
-  int _loadGeneration = 0;
+  List<UserMeeting> _meetings = [];
+  bool _isLoadingNotifications = true;
+  bool _isLoadingMeetings = true;
+  String? _notificationsError;
+  String? _meetingsError;
+  int _notificationsGeneration = 0;
+  int _meetingsGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
+    _refreshAll();
   }
 
   @override
   void dispose() {
-    _loadGeneration++;
+    _notificationsGeneration++;
+    _meetingsGeneration++;
     super.dispose();
   }
 
+  Future<void> _refreshAll() async {
+    await Future.wait([_loadNotifications(), _loadMeetings()]);
+  }
+
   Future<void> _loadNotifications() async {
-    final generation = ++_loadGeneration;
+    final generation = ++_notificationsGeneration;
     final token = authToken;
     setState(() {
-      _isLoading = true;
-      _loadError = null;
+      _isLoadingNotifications = true;
+      _notificationsError = null;
     });
 
     try {
@@ -115,57 +198,101 @@ class _AlarmState extends State<Alarm> {
         return UserNotification.fromJson(rawNotification);
       }).toList();
 
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() => _notifications = notifications);
+      if (!mounted || generation != _notificationsGeneration) return;
+      setState(() {
+        _notifications = notifications;
+        unreadNotificationsCount.value = notifications
+            .where((notification) => !notification.isRead)
+            .length;
+      });
     } on ApiException catch (error) {
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() => _loadError = error.message);
+      if (!mounted || generation != _notificationsGeneration) return;
+      setState(() => _notificationsError = error.message);
     } on FormatException catch (error) {
-      if (!mounted || generation != _loadGeneration) return;
-      setState(() => _loadError = error.message);
+      if (!mounted || generation != _notificationsGeneration) return;
+      setState(() => _notificationsError = error.message);
     } finally {
-      if (mounted && generation == _loadGeneration) {
-        setState(() => _isLoading = false);
+      if (mounted && generation == _notificationsGeneration) {
+        setState(() => _isLoadingNotifications = false);
       }
+    }
+  }
+
+  Future<void> _loadMeetings() async {
+    final generation = ++_meetingsGeneration;
+    setState(() {
+      _isLoadingMeetings = true;
+      _meetingsError = null;
+    });
+
+    try {
+      final response = await apiGet('/users/me/meetings', token: authToken);
+      final rawMeetings = response['meetings'];
+      if (rawMeetings is! List) {
+        throw const FormatException('다가오는 모임 목록 응답 형식이 올바르지 않습니다.');
+      }
+      final meetings = rawMeetings.map((rawMeeting) {
+        if (rawMeeting is! Map<String, dynamic>) {
+          throw const FormatException('모임 정보 응답 형식이 올바르지 않습니다.');
+        }
+        return UserMeeting.fromJson(rawMeeting);
+      }).toList();
+
+      if (!mounted || generation != _meetingsGeneration) return;
+      setState(() => _meetings = meetings);
+    } on ApiException catch (error) {
+      if (!mounted || generation != _meetingsGeneration) return;
+      setState(() => _meetingsError = error.message);
+    } on FormatException catch (error) {
+      if (!mounted || generation != _meetingsGeneration) return;
+      setState(() => _meetingsError = error.message);
+    } finally {
+      if (mounted && generation == _meetingsGeneration) {
+        setState(() => _isLoadingMeetings = false);
+      }
+    }
+  }
+
+  Future<void> _markNotificationRead(UserNotification notification) async {
+    if (notification.isRead) return;
+    try {
+      await apiPatch(
+        '/users/me/notifications/${notification.id}/read',
+        const {},
+        token: authToken,
+      );
+      if (!mounted) return;
+      setState(() {
+        _notifications = [
+          for (final item in _notifications)
+            if (item.id == notification.id) item.markRead() else item,
+        ];
+        unreadNotificationsCount.value = _notifications
+            .where((item) => !item.isRead)
+            .length;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _notifications.isEmpty) {
+    if (_isLoadingNotifications &&
+        _isLoadingMeetings &&
+        _notifications.isEmpty &&
+        _meetings.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    if (_loadError != null && _notifications.isEmpty) {
-      return Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.cloud_off_outlined, size: 48),
-                  const SizedBox(height: 12),
-                  Text(_loadError!, textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: _loadNotifications,
-                    child: const Text('다시 시도'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
     }
 
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
-          onRefresh: _loadNotifications,
+          onRefresh: _refreshAll,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -179,9 +306,31 @@ class _AlarmState extends State<Alarm> {
                 ),
               ),
               const SizedBox(height: 18),
-              if (_loadError != null)
+              _buildSectionTitle('다가오는 모임', _meetings.length),
+              const SizedBox(height: 10),
+              if (_isLoadingMeetings)
+                const Center(child: CircularProgressIndicator())
+              else if (_meetingsError != null)
                 _InlineLoadError(
-                  message: _loadError!,
+                  message: _meetingsError!,
+                  onRetry: _loadMeetings,
+                )
+              else if (_meetings.isEmpty)
+                const _InlineEmptyMessage(message: '예정된 모임이 없습니다.')
+              else
+                for (final meeting in _meetings)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _MeetingTile(meeting: meeting),
+                  ),
+              const SizedBox(height: 18),
+              _buildSectionTitle('알림', _notifications.length),
+              const SizedBox(height: 10),
+              if (_isLoadingNotifications)
+                const Center(child: CircularProgressIndicator())
+              else if (_notificationsError != null)
+                _InlineLoadError(
+                  message: _notificationsError!,
                   onRetry: _loadNotifications,
                 )
               else if (_notifications.isEmpty)
@@ -190,12 +339,39 @@ class _AlarmState extends State<Alarm> {
                 for (final notification in _notifications)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _NotificationTile(notification: notification),
+                    child: _NotificationTile(
+                      notification: notification,
+                      onTap: () => _markNotificationRead(notification),
+                    ),
                   ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, int count) {
+    return Row(
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '$count',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -252,10 +428,101 @@ class _InlineLoadError extends StatelessWidget {
   }
 }
 
+class _InlineEmptyMessage extends StatelessWidget {
+  const _InlineEmptyMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 22),
+      child: Center(
+        child: Text(
+          message,
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+class _MeetingTile extends StatelessWidget {
+  const _MeetingTile({required this.meeting});
+
+  final UserMeeting meeting;
+
+  @override
+  Widget build(BuildContext context) {
+    final category = categoryOf(meeting.category);
+    final date = meeting.meetingAt;
+    final dateLabel =
+        '${date.month}월 ${date.day}일 ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppColors.softShadow(),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: category.light,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(category.emoji, style: const TextStyle(fontSize: 22)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  meeting.clubName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$dateLabel · ${meeting.place ?? meeting.locationName}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (meeting.memo?.isNotEmpty == true) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    meeting.memo!,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.notification});
+  const _NotificationTile({required this.notification, required this.onTap});
 
   final UserNotification notification;
+  final VoidCallback onTap;
 
   String get _createdAtLabel {
     final now = DateTime.now();
@@ -274,55 +541,62 @@ class _NotificationTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         boxShadow: AppColors.softShadow(),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(
-              Icons.notifications_active_outlined,
-              color: AppColors.primary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.notifications_active_outlined,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          notification.title,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              notification.title,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _createdAtLabel,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 6),
                       Text(
-                        _createdAtLabel,
+                        notification.message,
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textHint,
+                          fontSize: 14,
+                          height: 1.4,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    notification.message,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.4,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
