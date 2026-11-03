@@ -51,7 +51,8 @@ app.use(
     },
   }),
 );
-app.use(express.json({ limit: "10kb" }));
+// 동호회 소개글(최대 5000자) 등 한글 긴 글도 들어오도록 여유 있게 (한글 1자 = 3바이트)
+app.use(express.json({ limit: "50kb" }));
 
 app.get("/health", async (_request, response) => {
   try {
@@ -140,6 +141,17 @@ app.post("/auth/signup", async (request, response) => {
   ) {
     return response.status(400).json({
       message: "이름, 이메일, 전화번호, 8자 이상의 비밀번호를 입력해주세요.",
+    });
+  }
+  if (name.trim().length > 50 || normalizedEmail.length > 255) {
+    return response
+      .status(400)
+      .json({ message: "이름은 50자, 이메일은 255자 이하로 입력해주세요." });
+  }
+  // bcrypt 는 앞 72바이트만 비교하므로 그보다 긴 비밀번호는 받지 않음
+  if (Buffer.byteLength(password, "utf8") > 72) {
+    return response.status(400).json({
+      message: "비밀번호는 영문 72자(한글 24자) 이하로 입력해주세요.",
     });
   }
   if (normalizedBirthDate === undefined) {
@@ -553,6 +565,11 @@ app.post("/auth/social/signup", async (request, response) => {
     return response
       .status(400)
       .json({ message: "이름과 전화번호를 입력해주세요." });
+  }
+  if (name.trim().length > 50) {
+    return response
+      .status(400)
+      .json({ message: "이름은 50자 이하로 입력해주세요." });
   }
   if (normalizedBirthDate === undefined) {
     return response
